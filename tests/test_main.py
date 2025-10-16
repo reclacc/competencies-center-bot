@@ -32,7 +32,7 @@ class TestStartupShutdown:
 
             bot.set_webhook.assert_called_once()
             call_args = bot.set_webhook.call_args
-            assert call_args.kwargs['url'] == "https://example.com/webhook"
+            assert call_args.kwargs["url"] == "https://example.com/webhook"
 
     async def test_on_startup_webhook_without_url(self, bot):
         """Проверка ошибки при отсутствии URL в режиме вебхука"""
