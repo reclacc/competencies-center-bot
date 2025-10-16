@@ -36,7 +36,18 @@ jobs:
     
     - name: Set PYTHONPATH
       run: echo "PYTHONPATH=${{ github.workspace }}" >> $GITHUB_ENV
-    
+
+    - name: Set up environment variables
+      env:
+        BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+      run: |
+        echo "BOT_TOKEN=$BOT_TOKEN" >> $GITHUB_ENV
+        echo "WEBHOOK_MODE=false" >> $GITHUB_ENV
+        echo "WEBHOOK_URL=" >> $GITHUB_ENV
+        echo "WEBHOOK_PATH=/webhook" >> $GITHUB_ENV
+        echo "APP_HOST=0.0.0.0" >> $GITHUB_ENV
+        echo "APP_PORT=8080" >> $GITHUB_ENV    
+
     - name: Lint with flake8
       run: |
         flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
