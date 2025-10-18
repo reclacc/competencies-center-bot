@@ -539,7 +539,7 @@ Related to #
 - [ ] Добавлены новые тесты для новой функциональности
 - [ ] Обновлена документация (README, TESTING, docstrings)
 - [ ] Нет конфликтов с `develop` веткой
-- [ ] Коммиты следуют [стандарту](CONTRIBUTING.md#шаг-4-коммиты)
+- [ ] Коммиты следуют [стандарту](https://github.com/reclacc/competencies-center-bot/blob/develop/CONTRIBUTING.md#шаг-4-коммиты)
 - [ ] PR создан из актуальной ветки `develop`
 
 ## Дополнительная информация
