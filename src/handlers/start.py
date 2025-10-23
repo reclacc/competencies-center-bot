@@ -38,12 +38,6 @@ async def faq_handler(message: types.Message):
     await message.answer(faq_text)
 
 
-# Заглушки для других разделов (реализовать позже)
-@router.message(lambda msg: msg.text == "Образовательные платформы")
-async def platforms_handler(message: types.Message):
-    await message.answer("Раздел 'Образовательные платформы' в разработке...")
-
-
 @router.message(lambda msg: msg.text == "Цифровые продукты")
 async def products_handler(message: types.Message):
     await message.answer("Раздел 'Цифровые продукты' в разработке...")

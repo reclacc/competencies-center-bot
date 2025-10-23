@@ -66,13 +66,12 @@ class TestBotIntegration:
         from src.handlers.start import (
             faq_handler,
             partners_handler,
-            platforms_handler,
             products_handler,
             subscribe_handler,
         )
 
         handlers = [
-            ("Образовательные платформы", platforms_handler),
+            # ("Образовательные платформы", platforms_handler),
             ("Цифровые продукты", products_handler),
             ("Партнеры", partners_handler),
             ("FAQ", faq_handler),
