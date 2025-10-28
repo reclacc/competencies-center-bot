@@ -70,7 +70,7 @@ async def handle_webhook(request: web.Request):
     return web.Response(text="OK")
 
 
-async def start_webhook():
+async def start_webhook():  # pragma: no cover
     """Запуск в режиме вебхука"""
     bot, dp = create_bot_and_dispatcher()
 
@@ -97,7 +97,7 @@ async def start_webhook():
         await runner.cleanup()
 
 
-async def start_polling():
+async def start_polling():  # pragma: no cover
     """Запуск в режиме polling"""
     bot, dp = create_bot_and_dispatcher()
 
@@ -107,7 +107,7 @@ async def start_polling():
         await bot.session.close()
 
 
-async def main():
+async def main():  # pragma: no cover
     """Главная функция"""
     try:
         if settings.webhook_mode:

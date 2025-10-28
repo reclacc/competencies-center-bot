@@ -1,3 +1,5 @@
+"""Тесты для каталога образовательных платформ"""
+
 from unittest.mock import AsyncMock
 
 import pytest
@@ -259,3 +261,141 @@ class TestCatalogHandlers:
         callback_query.message.edit_text.assert_called_once()
         callback_query.answer.assert_called_once()
         mock_state.set_state.assert_called_once_with(CatalogStates.viewing_platforms)
+
+
+@pytest.mark.integration
+class TestCatalogIntegration:
+    """Интеграционные тесты для каталога"""
+
+    async def test_full_catalog_flow(self, message, callback_query, mock_state):
+        """Тест полного флоу по каталогу"""
+        # 1. Открыть каталог
+        message.text = "Образовательные платформы"
+        message.answer = AsyncMock()
+
+        await show_catalog(message, mock_state)
+        assert message.answer.called
+
+        # 2. Выбрать категорию
+        callback_query.data = "category:programming"
+        callback_query.message.edit_text = AsyncMock()
+        callback_query.answer = AsyncMock()
+
+        await show_platforms_in_category(callback_query, mock_state)
+        assert callback_query.message.edit_text.called
+
+        # 3. Выбрать платформу
+        callback_query.data = "platform:stepik"
+        callback_query.message.edit_text = AsyncMock()
+
+        await show_platform_detail(callback_query, mock_state)
+        assert callback_query.message.edit_text.called
+
+        # 4. Вернуться к списку
+        callback_query.data = "back_to_platforms:programming"
+        callback_query.message.edit_text = AsyncMock()
+
+        await back_to_platforms(callback_query, mock_state)
+        assert callback_query.message.edit_text.called
+
+        # 5. Вернуться к категориям
+        callback_query.data = "back_to_categories"
+        callback_query.message.edit_text = AsyncMock()
+
+        await back_to_categories(callback_query, mock_state)
+        assert callback_query.message.edit_text.called
+
+    async def test_all_categories_have_platforms(self):
+        """Тест что все категории содержат хотя бы одну платформу"""
+        categories = get_categories()
+
+        for category in categories:
+            platforms = get_platforms_by_category(category["id"])
+            assert len(platforms) > 0, f"Категория {category['name']} не содержит платформ"
+
+    async def test_all_platforms_belong_to_valid_category(self):
+        """Тест что все платформы принадлежат валидным категориям"""
+        categories = get_categories()
+        category_ids = {cat["id"] for cat in categories}
+        platforms = get_all_platforms()
+
+        for platform in platforms:
+            assert (
+                platform["category_id"] in category_ids
+            ), f"Платформа {platform['name']} имеет невалидную категорию"
+
+    async def test_navigation_consistency(self, callback_query, mock_state):
+        """Тест консистентности навигации"""
+        # Выбор категории с сохранением id
+        callback_query.data = "category:programming"
+        callback_query.message.edit_text = AsyncMock()
+        callback_query.answer = AsyncMock()
+
+        await show_platforms_in_category(callback_query, mock_state)
+
+        # Сохранён ли id категории в state
+        mock_state.update_data.assert_called_with(current_category="programming")
+
+
+@pytest.mark.integration
+class TestCatalogDataIntegrity:
+    """Тесты целостности данных каталога"""
+
+    def test_unique_category_ids(self):
+        """Проверка уникальности ID категорий"""
+        categories = get_categories()
+        category_ids = [cat["id"] for cat in categories]
+
+        assert len(category_ids) == len(set(category_ids)), "ID категорий должны быть уникальными"
+
+    def test_unique_platform_ids(self):
+        """Проверка уникальности ID платформ"""
+        platforms = get_all_platforms()
+        platform_ids = [p["id"] for p in platforms]
+
+        assert len(platform_ids) == len(set(platform_ids)), "ID платформ должны быть уникальными"
+
+    def test_platform_names_not_empty(self):
+        """Проверка что имена платформ не пустые"""
+        platforms = get_all_platforms()
+
+        for platform in platforms:
+            assert platform["name"].strip(), f"Платформа {platform['id']} имеет пустое имя"
+
+    def test_platform_descriptions_not_empty(self):
+        """Проверка что описания платформ не пустые"""
+        platforms = get_all_platforms()
+
+        for platform in platforms:
+            assert platform[
+                "description"
+            ].strip(), f"Платформа {platform['id']} имеет пустое описание"
+
+    def test_platform_features_is_list(self):
+        """Проверка что features является списком"""
+        platforms = get_all_platforms()
+
+        for platform in platforms:
+            assert isinstance(
+                platform["features"], list
+            ), f"features у {platform['id']} должен быть списком"
+            assert (
+                len(platform["features"]) > 0
+            ), f"features у {platform['id']} не должен быть пустым"
+
+    def test_platform_links_are_valid_urls(self):
+        """Проверка что ссылки платформ валидные URL"""
+        platforms = get_all_platforms()
+
+        for platform in platforms:
+            link = platform["link"]
+            assert link.startswith("http://") or link.startswith(
+                "https://"
+            ), f"Некорректная ссылка у {platform['id']}: {link}"
+
+    def test_category_icons_not_empty(self):
+        """Проверка что иконки категорий не пустые"""
+        categories = get_categories()
+
+        for category in categories:
+            assert category["icon"].strip(), f"Категория {category['id']} имеет пустую иконку"
