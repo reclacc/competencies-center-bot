@@ -7,7 +7,7 @@ from aiogram.enums import ParseMode
 from aiohttp import web
 
 from src.config import settings
-from src.handlers import start
+from src.handlers import catalog, start
 
 logging.basicConfig(
     level=logging.INFO,
@@ -23,7 +23,11 @@ async def on_startup(bot: Bot):
             raise ValueError("WEBHOOK_URL должен быть установлен в .env для режима вебхука")
 
         webhook_url = f"{settings.webhook_url}{settings.webhook_path}"
-        await bot.set_webhook(url=webhook_url, drop_pending_updates=True)
+        await bot.set_webhook(
+            url=webhook_url,
+            drop_pending_updates=True,
+            allowed_updates=["message", "callback_query", "edited_message"],
+        )
         logger.info(f"Вебхук установлен: {webhook_url}")
     else:
         await bot.delete_webhook(drop_pending_updates=True)
@@ -47,6 +51,7 @@ def create_bot_and_dispatcher() -> tuple[Bot, Dispatcher]:
     dp = Dispatcher()
 
     dp.include_router(start.router)
+    dp.include_router(catalog.router)
 
     dp.startup.register(on_startup)
     dp.shutdown.register(on_shutdown)
@@ -65,7 +70,7 @@ async def handle_webhook(request: web.Request):
     return web.Response(text="OK")
 
 
-async def start_webhook():
+async def start_webhook():  # pragma: no cover
     """Запуск в режиме вебхука"""
     bot, dp = create_bot_and_dispatcher()
 
@@ -92,7 +97,7 @@ async def start_webhook():
         await runner.cleanup()
 
 
-async def start_polling():
+async def start_polling():  # pragma: no cover
     """Запуск в режиме polling"""
     bot, dp = create_bot_and_dispatcher()
 
@@ -102,7 +107,7 @@ async def start_polling():
         await bot.session.close()
 
 
-async def main():
+async def main():  # pragma: no cover
     """Главная функция"""
     try:
         if settings.webhook_mode:

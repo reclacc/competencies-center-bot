@@ -6,7 +6,6 @@ from aiogram.filters import CommandStart
 from src.handlers.start import (
     faq_handler,
     partners_handler,
-    platforms_handler,
     products_handler,
     router,
     start_handler,
@@ -74,16 +73,6 @@ class TestMenuHandlers:
 
         assert "Часто задаваемые вопросы" in response
         assert "Что такое Центр компетенций" in response
-
-    async def test_platforms_handler(self, message):
-        """Проверка обработчика образовательных платформ"""
-        message.text = "Образовательные платформы"
-
-        await platforms_handler(message)
-
-        message.answer.assert_called_once()
-        response = message.answer.call_args[0][0]
-        assert "Образовательные платформы" in response
 
     async def test_products_handler(self, message):
         """Проверка обработчика цифровых продуктов"""
