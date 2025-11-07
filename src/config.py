@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 
 from pydantic import ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -9,6 +9,11 @@ class Settings(BaseSettings):
 
     # Telegram
     bot_token: str
+
+    # Google_Sheets на будущее, если понадобится
+    sheet_id: str
+    google_credentials_file: dict
+    scopes: List[str]
 
     # Настройки вебхука
     webhook_mode: bool = False
