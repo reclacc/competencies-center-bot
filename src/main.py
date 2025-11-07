@@ -79,6 +79,7 @@ async def start_webhook():  # pragma: no cover
     app["dp"] = dp
 
     app.router.add_post(settings.webhook_path, handle_webhook)
+    app.router.add_post("/receive_edit", handle_google_edit)
 
     # Вызов startup хендлеров
     await on_startup(bot)
@@ -86,6 +87,8 @@ async def start_webhook():  # pragma: no cover
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, settings.app_host, settings.app_port)
+
+    # values_list = get_info_from_google_sheets()
 
     logger.info(f"Сервер запущен на {settings.app_host}:{settings.app_port}")
     await site.start()
@@ -95,6 +98,32 @@ async def start_webhook():  # pragma: no cover
     finally:
         await on_shutdown(bot)
         await runner.cleanup()
+
+
+async def handle_google_edit(request: web.Request):
+    """Обработчик вебхуков от Google Sheets"""
+    try:
+        data = await request.json()
+        print(data)
+        # print(f"Sheet: {data.get('sheet')}")
+        # print(f"Cell: {data.get('cell')}")
+        # print(f"Value: {data.get('value')}")
+        # print(f"User: {data.get('user')}")
+
+        # webhook_result = await update_from_notification(data)
+        # print("result: ", webhook_result)
+
+        return web.json_response(
+            {
+                "status": "success",
+                "message": "Webhook processed successfully",
+                "received_data": data,
+            }
+        )
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return web.json_response({"status": "error", "message": str(e)}, status=500)
 
 
 async def start_polling():  # pragma: no cover
