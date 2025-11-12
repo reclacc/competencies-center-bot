@@ -28,7 +28,7 @@ test-cov:
 	pytest --cov=src --cov-report=html --cov-report=term
 
 test-watch:
-	pytest-watch
+	ptw src tests -- --testmon -q
 
 lint:
 	flake8 src/ tests/

@@ -62,18 +62,10 @@ class TestBotIntegration:
             assert user.first_name in response
 
     async def test_all_menu_buttons(self, message):
-        """Тест всех кнопок меню"""
-        from src.handlers.start import (
-            faq_handler,
-            partners_handler,
-            products_handler,
-            subscribe_handler,
-        )
+        """Тест всех основных кнопок меню"""
+        from src.handlers.start import subscribe_handler
 
         handlers = [
-            # ("Образовательные платформы", platforms_handler),
-            ("Цифровые продукты", products_handler),
-            ("Партнеры", partners_handler),
             ("FAQ", faq_handler),
             ("Подписка на уведомления", subscribe_handler),
         ]
@@ -114,3 +106,54 @@ class TestBotPerformance:
 
         # Если дошли сюда без ошибок - тест пройден
         assert True
+
+
+@pytest.mark.integration
+class TestSectionsIntegrationFlow:
+    """Интеграционные тесты для всех разделов"""
+
+    async def test_sections_not_crash_on_empty_data(self, message):
+        """Тест что разделы не падают на пустых данных"""
+        from src.handlers.sections import (
+            show_areas_list,
+            show_digital_products_list,
+            show_events_list,
+            show_partners_list,
+            show_target_groups_list,
+        )
+        from src.utils import AREAS, DIGITAL_PRODUCTS, EVENTS, PARTNERS, TARGET_GROUPS
+
+        # Очищаем данные
+        TARGET_GROUPS.clear()
+        EVENTS.clear()
+        PARTNERS.clear()
+        DIGITAL_PRODUCTS.clear()
+        AREAS.clear()
+
+        from unittest.mock import AsyncMock
+
+        from aiogram.fsm.context import FSMContext
+
+        message.answer = AsyncMock()
+
+        mock_state = AsyncMock(spec=FSMContext)
+        mock_state.set_state = AsyncMock()
+
+        handlers = [
+            (show_target_groups_list, "Целевые группы"),
+            (show_events_list, "Мероприятия"),
+            (show_partners_list, "Партнёры"),
+            (show_digital_products_list, "Цифровые продукты"),
+            (show_areas_list, "Направления"),
+        ]
+
+        for handler, text in handlers:
+            message.text = text
+            message.answer.reset_mock()
+
+            await handler(message, mock_state)
+
+            # Проверяем что вызов не упал и вернул сообщение
+            message.answer.assert_called_once()
+            response = message.answer.call_args[0][0]
+            assert "не загружена" in response or "пока не загружена" in response

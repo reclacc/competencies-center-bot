@@ -22,9 +22,12 @@ class TestMainMenu:
         keyboard = get_main_menu()
 
         expected_buttons = [
-            "Образовательные платформы",
+            "Целевые группы",
+            "Мероприятия",
+            "Партнёры",
             "Цифровые продукты",
-            "Партнеры",
+            "Направления",
+            "Курсы",
             "FAQ",
             "Подписка на уведомления",
         ]
@@ -45,7 +48,7 @@ class TestMainMenu:
 
         button_count = sum(len(row) for row in keyboard.keyboard)
 
-        assert button_count == 5, "Должно быть 5 кнопок в главном меню"
+        assert button_count == 8, "Должно быть 8 кнопок в главном меню"
 
     def test_main_menu_buttons_are_keyboard_button_type(self):
         """Проверка типа кнопок"""
@@ -59,12 +62,9 @@ class TestMainMenu:
         """Проверка расположения кнопок"""
         keyboard = get_main_menu()
 
-        # Проверяем, что первые 4 кнопки по одной в ряду
-        assert len(keyboard.keyboard[0]) == 1  # Образовательные платформы
-        assert len(keyboard.keyboard[1]) == 1  # Цифровые продукты
-        assert len(keyboard.keyboard[2]) == 1  # Партнеры
-        assert len(keyboard.keyboard[3]) == 1  # FAQ
-        assert len(keyboard.keyboard[4]) == 1  # Подписка
+        # Проверяем, что все кнопки по одной в ряду
+        for row in keyboard.keyboard:
+            assert len(row) == 1, "Каждая кнопка должна быть на отдельной строке"
 
     def test_main_menu_idempotency(self):
         """Проверка идемпотентности - повторные вызовы дают одинаковый результат"""

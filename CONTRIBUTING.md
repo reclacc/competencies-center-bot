@@ -71,8 +71,13 @@ WEBHOOK_PATH=/webhook
 APP_HOST=0.0.0.0
 APP_PORT=8080
 
-# На будущее (пока не трогать)
+# Для гугл таблиц
 GOOGLE_CREDENTIALS_FILE=credentials.json
+SHEET_ID=abcd1234
+GOOGLE_WEBHOOK_PATH=/receive_edit
+
+# Статическое поле
+SCOPES=["https://www.googleapis.com/auth/spreadsheets"]
 ```
 
 ### 4. Проверка установки
