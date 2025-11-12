@@ -8,7 +8,7 @@ Telegram-бот для Центра компетенций с поддержко
 - Конфигурация через `.env` файл
 - Современная структура с aiogram 3.x
 - Логирование событий
-- Готовность к интеграции с Google Sheets
+- Интеграция с Google Sheets
 
 ## Структура проекта
 
@@ -24,10 +24,14 @@ competencies-center-bot/
 ├── src/
 │   ├── handlers/                     # Обработчики команд и сообщений
 │   │   ├── __init__.py
-│   │   └── start.py                  # Команда /start и главное меню
+│   │   ├── start.py                  # Команда /start и главное меню
+│   │   ├── courses.py                # Обработчик для курсов (FSM)
+│   │   └── sections.py               # Обработчики для разделов (мероприятия, партнёры и пр.)
 │   ├── keyboards/                    # Клавиатуры
 │   │   ├── __init__.py
-│   │   └── main_menu.py              # Главное меню
+│   │   ├── courses_keyboard.py       # Курсы
+│   │   ├── main_menu.py              # Главное меню
+│   │   └── sections_keyboard.py      # Разделы
 │   ├── config.py                     # Настройки из .env
 │   ├── main.py                       # Точка входа
 │   └── utils.py                      # Утилиты
@@ -64,8 +68,64 @@ pip install -r requirements.txt
 4. **Настройте переменные окружения**
 ```bash
 cp .env.example .env
-# Отредактируйте .env и добавьте BOT_TOKEN
+# Отредактируйте .env
 ```
+
+## Настройка Google Sheets
+
+Чтобы бот мог работать с таблицей Google Sheets, нужно выполнить следующие шаги:
+
+1. **Создайте сервисный аккаунт Google**
+2. **Включите API Google Sheets**
+3. **Создайте Google Таблицу и получите её ID**
+4. **Дайте сервисному аккаунту доступ к таблице**
+5. **Настройте триггер Google Apps Script на "при редактировании:"**
+```javascript
+function onEdit(e) {
+  var sheet = e.source.getActiveSheet();
+  var range = e.range;
+  
+  var data = {
+    sheet: sheet.getName(),
+    cell: range.getA1Notation(),
+    value: range.getValue(),
+    user: Session.getActiveUser().getEmail()
+  };
+  
+  var url = 'https://your-webhook.url/receive_edit';
+  
+  var options = {
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify(data)
+  };
+  
+  try {
+    UrlFetchApp.fetch(url, options);
+  } catch(error) {
+    Logger.log('Error: ' + error);
+  }
+}
+```
+
+## Структура Google Sheets
+
+Таблица должна содержать следующие листы:
+
+### Основные листы
+
+| Лист | Описание | Обязательные поля |
+|------|----------|-------------------|
+| `categories` | Категории курсов | id, name |
+| `courses` | Курсы | id, name, description, category_id |
+| `platforms` | Образовательные платформы | id, name, description |
+| `target_groups` | Целевые группы | id, name, description |
+| `events` | Мероприятия | id, title, description |
+| `partners` | Партнёры | id, name, description |
+| `digital_products` | Цифровые продукты | id, name, description |
+| `areas` | Направления | id, name, description |
+
+**Важно:** В каждом листе строка с `id = 0` содержит описание раздела и не отображается в списках.
 
 ## Запуск
 
@@ -103,6 +163,8 @@ python -m src.main
 | Параметр | Описание | По умолчанию |
 |----------|----------|--------------|
 | `BOT_TOKEN` | Токен от @BotFather | *обязательный* |
+| `SHEET_ID` | ID Google Sheets таблицы | - |
+| `GOOGLE_CREDENTIALS_FILE` | Путь к credentials.json | credentials.json |
 | `WEBHOOK_MODE` | Режим работы (true/false) | `false` |
 | `WEBHOOK_URL` | URL для вебхука | - |
 | `WEBHOOK_PATH` | Путь для вебхука | `/webhook` |

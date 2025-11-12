@@ -1,3 +1,5 @@
+"""Обработчики команды /start и FAQ (FAQ вынести)"""
+
 import logging
 
 from aiogram import Router, types
@@ -32,22 +34,13 @@ async def faq_handler(message: types.Message):
         "<b>Q: Что такое Центр компетенций?</b>\n"
         "A: Это образовательный центр для развития навыков...\n\n"
         "<b>Q: Как получить доступ к платформам?</b>\n"
-        "A: Выберите раздел 'Образовательные платформы' в меню.\n\n"
+        "A: Выберите раздел 'Курсы' в меню.\n\n"
         "💬 Есть ещё вопросы? Напишите нам!"
     )
     await message.answer(faq_text)
 
 
-@router.message(lambda msg: msg.text == "Цифровые продукты")
-async def products_handler(message: types.Message):
-    await message.answer("Раздел 'Цифровые продукты' в разработке...")
-
-
-@router.message(lambda msg: msg.text == "Партнеры")
-async def partners_handler(message: types.Message):
-    await message.answer("Раздел 'Партнеры' в разработке...")
-
-
 @router.message(lambda msg: msg.text == "Подписка на уведомления")
 async def subscribe_handler(message: types.Message):
+    """Обработчик раздела 'Подписка на уведомления'"""
     await message.answer("Раздел 'Подписка на уведомления' в разработке...")

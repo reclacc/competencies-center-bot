@@ -3,14 +3,7 @@
 import pytest
 from aiogram.filters import CommandStart
 
-from src.handlers.start import (
-    faq_handler,
-    partners_handler,
-    products_handler,
-    router,
-    start_handler,
-    subscribe_handler,
-)
+from src.handlers.start import faq_handler, router, start_handler, subscribe_handler
 
 
 @pytest.mark.unit
@@ -73,26 +66,6 @@ class TestMenuHandlers:
 
         assert "Часто задаваемые вопросы" in response
         assert "Что такое Центр компетенций" in response
-
-    async def test_products_handler(self, message):
-        """Проверка обработчика цифровых продуктов"""
-        message.text = "Цифровые продукты"
-
-        await products_handler(message)
-
-        message.answer.assert_called_once()
-        response = message.answer.call_args[0][0]
-        assert "Цифровые продукты" in response
-
-    async def test_partners_handler(self, message):
-        """Проверка обработчика партнеров"""
-        message.text = "Партнеры"
-
-        await partners_handler(message)
-
-        message.answer.assert_called_once()
-        response = message.answer.call_args[0][0]
-        assert "Партнеры" in response
 
     async def test_subscribe_handler(self, message):
         """Проверка обработчика подписки"""

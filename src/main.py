@@ -7,7 +7,8 @@ from aiogram.enums import ParseMode
 from aiohttp import web
 
 from src.config import settings
-from src.handlers import catalog, start
+from src.handlers import courses, sections, start
+from src.utils import load_all_data, update_from_notification
 
 logging.basicConfig(
     level=logging.INFO,
@@ -18,6 +19,13 @@ logger = logging.getLogger(__name__)
 
 async def on_startup(bot: Bot):
     """Действия при запуске бота"""
+    try:
+        await load_all_data()
+        logger.info("Данные из Google Sheets загружены успешно")
+    except Exception as e:
+        logger.error(f"Ошибка при загрузке данных из Google Sheets: {e}", exc_info=True)
+        # Запуск не прерывается, т.к. в теории бот может работать с пустыми данными
+
     if settings.webhook_mode:
         if not settings.webhook_url:
             raise ValueError("WEBHOOK_URL должен быть установлен в .env для режима вебхука")
@@ -29,6 +37,7 @@ async def on_startup(bot: Bot):
             allowed_updates=["message", "callback_query", "edited_message"],
         )
         logger.info(f"Вебхук установлен: {webhook_url}")
+        logger.info(f"Google Sheets webhook: {settings.webhook_url}{settings.google_webhook_path}")
     else:
         await bot.delete_webhook(drop_pending_updates=True)
         logger.info("Режим polling активирован")
@@ -50,8 +59,10 @@ def create_bot_and_dispatcher() -> tuple[Bot, Dispatcher]:
 
     dp = Dispatcher()
 
+    # Подключаем роутеры
     dp.include_router(start.router)
-    dp.include_router(catalog.router)
+    dp.include_router(sections.router)
+    dp.include_router(courses.router)
 
     dp.startup.register(on_startup)
     dp.shutdown.register(on_shutdown)
@@ -70,6 +81,37 @@ async def handle_webhook(request: web.Request):
     return web.Response(text="OK")
 
 
+async def handle_google_edit(request: web.Request):
+    """Обработчик вебхуков от Google Sheets"""
+    try:
+        data = await request.json()
+        logger.info(f"Получено уведомление от Google Sheets: {data}")
+
+        success = await update_from_notification(data)
+
+        if success:
+            return web.json_response(
+                {
+                    "status": "success",
+                    "message": "Данные обновлены успешно",
+                    "received_data": data,
+                }
+            )
+        else:
+            return web.json_response(
+                {
+                    "status": "warning",
+                    "message": "Не удалось обновить некоторые данные",
+                    "received_data": data,
+                },
+                status=200,  # Вернуть 200 чтоб гугл не повторял запрос
+            )
+
+    except Exception as e:
+        logger.error(f"Ошибка при обработке уведомления от Google Sheets: {e}", exc_info=True)
+        return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+
 async def start_webhook():  # pragma: no cover
     """Запуск в режиме вебхука"""
     bot, dp = create_bot_and_dispatcher()
@@ -79,7 +121,7 @@ async def start_webhook():  # pragma: no cover
     app["dp"] = dp
 
     app.router.add_post(settings.webhook_path, handle_webhook)
-    app.router.add_post("/receive_edit", handle_google_edit)
+    app.router.add_post(settings.google_webhook_path, handle_google_edit)
 
     # Вызов startup хендлеров
     await on_startup(bot)
@@ -88,9 +130,10 @@ async def start_webhook():  # pragma: no cover
     await runner.setup()
     site = web.TCPSite(runner, settings.app_host, settings.app_port)
 
-    # values_list = get_info_from_google_sheets()
-
     logger.info(f"Сервер запущен на {settings.app_host}:{settings.app_port}")
+    logger.info(f"Telegram webhook: {settings.webhook_path}")
+    logger.info(f"Google Sheets webhook: {settings.google_webhook_path}")
+
     await site.start()
 
     try:
@@ -98,32 +141,6 @@ async def start_webhook():  # pragma: no cover
     finally:
         await on_shutdown(bot)
         await runner.cleanup()
-
-
-async def handle_google_edit(request: web.Request):
-    """Обработчик вебхуков от Google Sheets"""
-    try:
-        data = await request.json()
-        print(data)
-        # print(f"Sheet: {data.get('sheet')}")
-        # print(f"Cell: {data.get('cell')}")
-        # print(f"Value: {data.get('value')}")
-        # print(f"User: {data.get('user')}")
-
-        # webhook_result = await update_from_notification(data)
-        # print("result: ", webhook_result)
-
-        return web.json_response(
-            {
-                "status": "success",
-                "message": "Webhook processed successfully",
-                "received_data": data,
-            }
-        )
-
-    except Exception as e:
-        print(f"Error: {e}")
-        return web.json_response({"status": "error", "message": str(e)}, status=500)
 
 
 async def start_polling():  # pragma: no cover

@@ -1,278 +1,259 @@
-"""Утилиты и данные для каталога образовательных платформ"""
+"""Утилиты и данные для работы с Google Sheets"""
 
+import asyncio
+import logging
 from typing import Optional
 
-# Категории образовательных платформ
-CATEGORIES = [
-    {
-        "id": "programming",
-        "name": "Программирование",
-        "icon": "💻",
-        "description": "Курсы по разработке ПО, веб-разработке и программированию",
-    },
-    {
-        "id": "design",
-        "name": "Дизайн",
-        "icon": "🎨",
-        "description": "Графический дизайн, UX/UI, 3D-моделирование",
-    },
-    {
-        "id": "data_science",
-        "name": "Анализ данных",
-        "icon": "📊",
-        "description": "Data Science, машинное обучение, аналитика",
-    },
-    {
-        "id": "management",
-        "name": "Менеджмент",
-        "icon": "📈",
-        "description": "Управление проектами, продуктовый менеджмент",
-    },
-    {
-        "id": "languages",
-        "name": "Иностранные языки",
-        "icon": "🌍",
-        "description": "Изучение иностранных языков",
-    },
-]
+import gspread_asyncio
+from google.oauth2.service_account import Credentials
 
-# Заглушка для платформ до интеграции с Google Sheets by чатгпт
-PLATFORMS = [
-    # Программирование
-    {
-        "id": "stepik",
-        "name": "Stepik",
-        "category_id": "programming",
-        "description": (
-            "Российская образовательная платформа с бесплатными и платными курсами "
-            "по программированию, математике, анализу данных."
-        ),
-        "features": [
-            "Интерактивные задачи с автопроверкой",
-            "Сертификаты о прохождении",
-            "Курсы от ведущих университетов",
-            "Поддержка множества языков программирования",
-        ],
-        "target_audience": "Начинающие и опытные разработчики",
-        "link": "https://stepik.org",
-    },
-    {
-        "id": "coursera",
-        "name": "Coursera",
-        "category_id": "programming",
-        "description": (
-            "Международная платформа с курсами от топовых университетов мира. "
-            "Специализации по Computer Science, AI, веб-разработке."
-        ),
-        "features": [
-            "Курсы от Stanford, MIT, Google",
-            "Профессиональные сертификаты",
-            "Гибкий график обучения",
-            "Финансовая помощь для студентов",
-        ],
-        "target_audience": "Студенты и профессионалы всех уровней",
-        "link": "https://www.coursera.org",
-    },
-    {
-        "id": "hexlet",
-        "name": "Hexlet",
-        "category_id": "programming",
-        "description": (
-            "Практические курсы по веб-разработке с акцентом на реальные проекты. "
-            "Обучение JavaScript, Python, PHP."
-        ),
-        "features": [
-            "Менторская поддержка",
-            "Реальные проекты в портфолио",
-            "Помощь в трудоустройстве",
-            "Сообщество разработчиков",
-        ],
-        "target_audience": "Начинающие разработчики, карьерный переход",
-        "link": "https://ru.hexlet.io",
-    },
-    # Дизайн
-    {
-        "id": "skillbox_design",
-        "name": "Skillbox: Дизайн",
-        "category_id": "design",
-        "description": (
-            "Комплексные курсы по графическому дизайну, UX/UI, motion-дизайну "
-            "с дипломом государственного образца."
-        ),
-        "features": [
-            "Работа с реальными заказчиками",
-            "Портфолио из 5+ проектов",
-            "Трудоустройство после обучения",
-            "Мастер-классы от практиков",
-        ],
-        "target_audience": "Новички и дизайнеры среднего уровня",
-        "link": "https://skillbox.ru/design",
-    },
-    {
-        "id": "domestika",
-        "name": "Domestika",
-        "category_id": "design",
-        "description": (
-            "Творческая платформа с курсами по иллюстрации, дизайну, "
-            "фотографии от известных креативных профессионалов."
-        ),
-        "features": [
-            "Курсы от мировых экспертов",
-            "Акцент на творческом процессе",
-            "Международное сообщество",
-            "Доступ навсегда после покупки",
-        ],
-        "target_audience": "Творческие профессионалы и любители",
-        "link": "https://www.domestika.org",
-    },
-    # Анализ данных
-    {
-        "id": "datacamp",
-        "name": "DataCamp",
-        "category_id": "data_science",
-        "description": (
-            "Специализированная платформа для изучения Data Science, "
-            "Python, R, SQL с интерактивными упражнениями."
-        ),
-        "features": [
-            "Практика в браузере без установки",
-            "Карьерные треки по специализациям",
-            "Проекты на реальных данных",
-            "Сертификация навыков",
-        ],
-        "target_audience": "Аналитики данных, дата-сайентисты",
-        "link": "https://www.datacamp.com",
-    },
-    {
-        "id": "kaggle_learn",
-        "name": "Kaggle Learn",
-        "category_id": "data_science",
-        "description": (
-            "Бесплатные микрокурсы по ML, Deep Learning, SQL от платформы Kaggle. "
-            "Практика на соревнованиях."
-        ),
-        "features": [
-            "Полностью бесплатно",
-            "Интеграция с соревнованиями Kaggle",
-            "Короткие практические курсы",
-            "Сообщество дата-сайентистов",
-        ],
-        "target_audience": "Начинающие и практикующие ML-инженеры",
-        "link": "https://www.kaggle.com/learn",
-    },
-    # Менеджмент
-    {
-        "id": "product_star",
-        "name": "ProductStar",
-        "category_id": "management",
-        "description": (
-            "Курсы по продуктовому менеджменту, проектному управлению, "
-            "маркетингу с акцентом на практику."
-        ),
-        "features": [
-            "Кейсы от Яндекс, Сбер, VK",
-            "Менторство от практикующих PM",
-            "Реальные продуктовые задачи",
-            "Карьерный центр",
-        ],
-        "target_audience": "Менеджеры продуктов, project-менеджеры",
-        "link": "https://productstar.ru",
-    },
-    {
-        "id": "pmbok",
-        "name": "PMI: Управление проектами",
-        "category_id": "management",
-        "description": (
-            "Официальные курсы по подготовке к сертификации PMP, "
-            "Agile, Scrum от Project Management Institute."
-        ),
-        "features": [
-            "Международная сертификация",
-            "Стандарты PMBOK",
-            "Признание работодателями по всему миру",
-            "Профессиональное сообщество",
-        ],
-        "target_audience": "Проектные менеджеры с опытом",
-        "link": "https://www.pmi.org/learning",
-    },
-    # Языки
-    {
-        "id": "duolingo",
-        "name": "Duolingo",
-        "category_id": "languages",
-        "description": (
-            "Бесплатное изучение иностранных языков в игровой форме. " "Поддержка 40+ языков."
-        ),
-        "features": [
-            "Геймификация обучения",
-            "Ежедневные цели и напоминания",
-            "Практика устной речи",
-            "Полностью бесплатная базовая версия",
-        ],
-        "target_audience": "Изучающие языки всех уровней",
-        "link": "https://www.duolingo.com",
-    },
-    {
-        "id": "skyeng",
-        "name": "Skyeng",
-        "category_id": "languages",
-        "description": (
-            "Персональные уроки английского с преподавателем онлайн. "
-            "Индивидуальная программа обучения."
-        ),
-        "features": [
-            "Занятия с носителями языка",
-            "Гибкий график",
-            "Интерактивная платформа",
-            "Подготовка к экзаменам IELTS, TOEFL",
-        ],
-        "target_audience": "Изучающие английский от A1 до C2",
-        "link": "https://skyeng.ru",
-    },
-]
+from src.config import settings
+
+logger = logging.getLogger(__name__)
+
+# Данные (пока без кэширования)
+CATEGORIES = []  # Категории курсов
+TARGET_GROUPS = []  # Целевые группы
+EVENTS = []  # Мероприятия
+PARTNERS = []  # Партнёры
+DIGITAL_PRODUCTS = []  # Цифровые продукты
+AREAS = []  # Направления
+COURSES = []  # Курсы
+
+# Маппинг листов на глобальные переменные
+SHEET_MAPPING = {
+    "target_groups": TARGET_GROUPS,
+    "events": EVENTS,
+    "partners": PARTNERS,
+    "digital_products": DIGITAL_PRODUCTS,
+    "areas": AREAS,
+    "courses": COURSES,
+    "categories": CATEGORIES,
+}
+
+
+def get_creds():
+    """Получить credentials для Google Sheets"""
+    return Credentials.from_service_account_file(
+        settings.google_credentials_file, scopes=settings.scopes
+    )
+
+
+async def get_agcm():
+    """Получить AsyncioGspreadClientManager"""
+    agcm = gspread_asyncio.AsyncioGspreadClientManager(get_creds)
+    return agcm
+
+
+async def load_sheet_data(sheet_name: str) -> list[dict]:
+    """
+    Загрузить данные из конкретного листа Google Sheets
+
+    Args:
+        sheet_name: Название листа
+
+    Returns:
+        list[dict]: Список записей (без строки с id=0, которая является описанием)
+    """
+    try:
+        agcm = await get_agcm()
+        agc = await agcm.authorize()
+        spreadsheet = await agc.open_by_key(settings.sheet_id)
+
+        try:
+            worksheet = await spreadsheet.worksheet(sheet_name)
+        except gspread_asyncio.exceptions.WorksheetNotFound:
+            logger.warning(f"Лист '{sheet_name}' не найден")
+            return []
+
+        # Записи как список словарей
+        records = await worksheet.get_all_records()
+
+        if not records:
+            logger.warning(f"Лист '{sheet_name}' пустой")
+            return []
+
+        data = []
+        for record in records:
+            # id в строку надо для единообразия
+            record_id = str(record.get("id", ""))
+
+            # id=0 это описание раздела
+            if record_id == "0":
+                continue
+
+            # пустые - None
+            processed_record = {}
+            for key, value in record.items():
+                if isinstance(value, str) and value.strip() == "":
+                    processed_record[key] = None
+                elif value == "NULL":
+                    processed_record[key] = None
+                else:
+                    processed_record[key] = value
+
+            data.append(processed_record)
+
+        logger.info(f"Загружено {len(data)} записей из листа '{sheet_name}'")
+        return data
+
+    except Exception as e:
+        logger.error(f"Ошибка при загрузке листа '{sheet_name}': {e}", exc_info=True)
+        return []
+
+
+async def get_sheet_description(sheet_name: str) -> Optional[str]:
+    """
+    Получить описание раздела (строка с id=0)
+
+    Args:
+        sheet_name: Название листа
+
+    Returns:
+        Optional[str]: Описание раздела или None
+    """
+    try:
+        agcm = await get_agcm()
+        agc = await agcm.authorize()
+        spreadsheet = await agc.open_by_key(settings.sheet_id)
+
+        try:
+            worksheet = await spreadsheet.worksheet(sheet_name)
+        except gspread_asyncio.exceptions.WorksheetNotFound:
+            return None
+
+        records = await worksheet.get_all_records()
+
+        # Ищем строку с id=0
+        for record in records:
+            if str(record.get("id", "")) == "0":
+                return record.get("description", "")
+
+        return None
+
+    except Exception as e:
+        logger.error(f"Ошибка при получении описания листа '{sheet_name}': {e}")
+        return None
+
+
+async def load_all_data():
+    """Загрузить все данные из Google Sheets при старте бота"""
+    logger.info("Начинается загрузка данных из Google Sheets...")
+
+    tasks = []
+    sheet_names = list(SHEET_MAPPING.keys())
+
+    for sheet_name in sheet_names:
+        tasks.append(load_sheet_data(sheet_name))
+
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Глобальные переменные
+    for sheet_name, result in zip(sheet_names, results):
+        if isinstance(result, Exception):
+            logger.error(f"Ошибка при загрузке {sheet_name}: {result}")
+            continue
+
+        global_var = SHEET_MAPPING[sheet_name]
+        global_var.clear()
+        global_var.extend(result)
+
+        logger.info(f"{sheet_name}: загружено {len(result)} записей")
+
+    logger.info("Загрузка данных из Google Sheets завершена")
+
+
+async def update_from_notification(notification_data: dict) -> bool:
+    """
+    Обновить данные при получении уведомления от Google Sheets
+
+    Args:
+        notification_data: Данные уведомления от вебхука
+
+    Returns:
+        bool: Успешность обновления
+    """
+    try:
+        sheet_name = notification_data.get("sheet")
+
+        if not sheet_name or sheet_name not in SHEET_MAPPING:
+            logger.warning(f"Неизвестный лист: {sheet_name}")
+            return False
+
+        logger.info(f"Получено уведомление об изменении листа '{sheet_name}'")
+
+        new_data = await load_sheet_data(sheet_name)
+
+        global_var = SHEET_MAPPING[sheet_name]
+        global_var.clear()
+        global_var.extend(new_data)
+
+        logger.info(f"Лист '{sheet_name}' обновлён: {len(new_data)} записей")
+        return True
+
+    except Exception as e:
+        logger.error(f"Ошибка при обновлении данных: {e}", exc_info=True)
+        return False
+
+
+# -------------Функции доступа к данным-------------
+
+
+def get_target_groups() -> list[dict]:
+    """Получить список целевых групп"""
+    return TARGET_GROUPS
+
+
+def get_events() -> list[dict]:
+    """Получить список мероприятий"""
+    return EVENTS
+
+
+def get_partners() -> list[dict]:
+    """Получить список партнёров"""
+    return PARTNERS
+
+
+def get_partner_by_id(partner_id: str) -> Optional[dict]:
+    """Получить партнёра по ID"""
+    return next((p for p in PARTNERS if str(p.get("id")) == str(partner_id)), None)
+
+
+def get_digital_products() -> list[dict]:
+    """Получить список цифровых продуктов"""
+    return DIGITAL_PRODUCTS
+
+
+def get_digital_product_by_id(product_id: str) -> Optional[dict]:
+    """Получить цифровой продукт по ID"""
+    return next((p for p in DIGITAL_PRODUCTS if str(p.get("id")) == str(product_id)), None)
+
+
+def get_areas() -> list[dict]:
+    """Получить список направлений"""
+    return AREAS
+
+
+def get_area_by_id(area_id: str) -> Optional[dict]:
+    """Получить направление по ID"""
+    return next((a for a in AREAS if str(a.get("id")) == str(area_id)), None)
+
+
+def get_courses() -> list[dict]:
+    """Получить список всех курсов"""
+    return COURSES
+
+
+def get_course_by_id(course_id: str) -> Optional[dict]:
+    """Получить курс по ID"""
+    return next((c for c in COURSES if str(c.get("id")) == str(course_id)), None)
 
 
 def get_categories() -> list[dict]:
-    """
-    Получить список всех категорий
-
-    Returns:
-        list[dict]: Список категорий
-    """
+    """Получить список категорий курсов"""
     return CATEGORIES
 
 
-def get_platforms_by_category(category_id: str) -> list[dict]:
-    """
-    Получить платформы по ID категории
-
-    Args:
-        category_id: ID категории
-
-    Returns:
-        list[dict]: Список платформ в категории
-    """
-    return [p for p in PLATFORMS if p["category_id"] == category_id]
-
-
-def get_platform_by_id(platform_id: str) -> Optional[dict]:
-    """
-    Получить платформу по ID
-
-    Args:
-        platform_id: ID платформы
-
-    Returns:
-        Optional[dict]: Платформа или None
-    """
-    return next((p for p in PLATFORMS if p["id"] == platform_id), None)
-
-
-def get_all_platforms() -> list[dict]:
-    """
-    Получить все платформы
-
-    Returns:
-        list[dict]: Список всех платформ
-    """
-    return PLATFORMS
+def get_courses_by_category(category_id: str) -> list[dict]:
+    """Получить курсы по категории"""
+    return [c for c in COURSES if str(c.get("category_id")) == str(category_id)]
