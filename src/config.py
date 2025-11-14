@@ -10,6 +10,14 @@ class Settings(BaseSettings):
     # Telegram
     bot_token: str
 
+    # Database
+    db_user: str
+    db_password: str
+    db_host: str
+    db_port: int
+    db_name: str
+    db_echo: bool
+
     # Google_Sheets
     sheet_id: str
     google_credentials_file: str
@@ -30,6 +38,11 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", case_sensitive=False
     )
+
+    @property
+    def db_url(self):
+        """Построение URL"""
+        return f"postgresql+asyncpg://{self.db_user}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}"
 
     @classmethod
     def for_tests(cls, **overrides) -> "Settings":
