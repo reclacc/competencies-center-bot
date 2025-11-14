@@ -84,8 +84,6 @@ GOOGLE_CREDENTIALS_FILE=credentials.json
 SHEET_ID=abcd1234
 GOOGLE_WEBHOOK_PATH=/receive_edit
 
-# Статическое поле
-SCOPES=["https://www.googleapis.com/auth/spreadsheets"]
 ```
 
 ### 4. Проверка установки
