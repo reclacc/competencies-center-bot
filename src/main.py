@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from contextlib import asynccontextmanager
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
@@ -8,6 +9,7 @@ from aiohttp import web
 
 from src.config import settings
 from src.handlers import courses, sections, start
+from src.models import db_helper, Base
 from src.utils import load_all_data, update_from_notification
 
 logging.basicConfig(
@@ -15,6 +17,21 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan():
+    """Контекстный менеджер для управления жизненным циклом приложения"""
+    logger.info("Creating database tables...")
+    async with db_helper.engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    logger.info("Database tables created successfully")
+
+    yield
+
+    logger.info("Closing database connections...")
+    await db_helper.engine.dispose()
+    logger.info("Database connections closed")
 
 
 async def on_startup(bot: Bot):
@@ -123,34 +140,38 @@ async def start_webhook():  # pragma: no cover
     app.router.add_post(settings.webhook_path, handle_webhook)
     app.router.add_post(settings.google_webhook_path, handle_google_edit)
 
-    # Вызов startup хендлеров
-    await on_startup(bot)
+    # ВЫЗОВ lifespan() через контекстный менеджер
+    async with lifespan():
+        # Вызов startup хендлеров
+        await on_startup(bot)
 
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, settings.app_host, settings.app_port)
+        runner = web.AppRunner(app)
+        await runner.setup()
+        site = web.TCPSite(runner, settings.app_host, settings.app_port)
 
-    logger.info(f"Сервер запущен на {settings.app_host}:{settings.app_port}")
-    logger.info(f"Telegram webhook: {settings.webhook_path}")
-    logger.info(f"Google Sheets webhook: {settings.google_webhook_path}")
+        logger.info(f"Сервер запущен на {settings.app_host}:{settings.app_port}")
+        logger.info(f"Telegram webhook: {settings.webhook_path}")
+        logger.info(f"Google Sheets webhook: {settings.google_webhook_path}")
 
-    await site.start()
+        await site.start()
 
-    try:
-        await asyncio.Event().wait()
-    finally:
-        await on_shutdown(bot)
-        await runner.cleanup()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            await on_shutdown(bot)
+            await runner.cleanup()
 
 
 async def start_polling():  # pragma: no cover
     """Запуск в режиме polling"""
     bot, dp = create_bot_and_dispatcher()
 
-    try:
-        await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
-    finally:
-        await bot.session.close()
+    # ВЫЗОВ lifespan() через контекстный менеджер
+    async with lifespan():
+        try:
+            await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
+        finally:
+            await bot.session.close()
 
 
 async def main():  # pragma: no cover
