@@ -57,6 +57,14 @@ nano .env  # или любой другой редактор
 # Токен бота
 BOT_TOKEN=12345
 
+# Database
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=postgres
+DB_ECHO=true
+
 # Режим работы: false = polling, true = webhook
 WEBHOOK_MODE=true
 
