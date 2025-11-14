@@ -6,6 +6,7 @@ from aiogram import Router, types
 from aiogram.filters import CommandStart
 
 from src.keyboards.main_menu import get_main_menu
+from src.views import create_user, subscribe
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -22,6 +23,8 @@ async def start_handler(message: types.Message):
         "Это бот <b>Центра компетенций</b>.\n"
         "Выберите интересующий вас раздел:"
     )
+    await create_user(user_id=user.id)
+    logger.info(f"Пользователь {user.id} ({user.username}) зарегистрировался")
 
     await message.answer(welcome_text, reply_markup=get_main_menu())
 
@@ -43,4 +46,9 @@ async def faq_handler(message: types.Message):
 @router.message(lambda msg: msg.text == "Подписка на уведомления")
 async def subscribe_handler(message: types.Message):
     """Обработчик раздела 'Подписка на уведомления'"""
-    await message.answer("Раздел 'Подписка на уведомления' в разработке...")
+    user = message.from_user
+    print("?/////")
+    print(user.id)
+    print("?/////")
+    await subscribe(message=message, user_id=user.id)
+    # await message.answer("Раздел 'Подписка на уведомления' в разработке...")
