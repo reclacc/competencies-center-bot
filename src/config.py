@@ -1,4 +1,5 @@
 from typing import List, Optional
+
 from pydantic import ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -42,7 +43,10 @@ class Settings(BaseSettings):
     @property
     def db_url(self):
         """Построение URL"""
-        return f"postgresql+asyncpg://{self.db_user}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}"
+        return (
+            f"postgresql+asyncpg://{self.db_user}:{self.db_password}"
+            f"@{self.db_host}:{self.db_port}/{self.db_name}"
+        )
 
     @classmethod
     def for_tests(cls, **overrides) -> "Settings":

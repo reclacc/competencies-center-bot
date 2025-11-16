@@ -1,14 +1,14 @@
 import logging
 from typing import TYPE_CHECKING
+
 from aiogram import Router, types
-from sqlalchemy import select
-
-from aiogram.filters import Command
-from sqlalchemy.engine import Result
 from aiogram.exceptions import TelegramForbiddenError
+from aiogram.filters import Command
+from sqlalchemy import select
+from sqlalchemy.engine import Result
 
-from src.models import db_helper, User
 from src.config import settings
+from src.models import User, db_helper
 
 if TYPE_CHECKING:
     from src.main import Bot
@@ -23,7 +23,7 @@ admin_router = Router()
 async def broadcast_message(bot: "Bot", text: str):
     success, blocked, failed = 0, 0, 0
     async for session in db_helper.session_dependency():
-        stmt = select(User).where(User.mailing == True)
+        stmt = select(User).where(User.mailing)
         result: Result = await session.execute(stmt)
         scalars_result = result.scalars().all()
 

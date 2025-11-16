@@ -1,7 +1,8 @@
-from sqlalchemy import select, ScalarResult
 from aiogram import types
+from sqlalchemy import ScalarResult, select
 from sqlalchemy.engine import Result
-from src.models import db_helper, User
+
+from src.models import User, db_helper
 
 
 async def create_user(user_id: int, user_status: str = "user", user_mailing: bool = False):

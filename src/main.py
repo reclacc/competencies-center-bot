@@ -9,8 +9,8 @@ from aiohttp import web
 
 from src.config import settings
 from src.handlers import courses, sections, start
+from src.models import Base, db_helper
 from src.services import broadcast
-from src.models import db_helper, Base
 from src.services.broadcast import broadcast_message
 from src.utils import load_all_data, update_from_notification
 
