@@ -6,6 +6,7 @@ from aiogram import Router, types
 from aiogram.filters import CommandStart
 
 from src.keyboards.main_menu import get_main_menu
+from src.utils import md_links_to_html
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -23,7 +24,7 @@ async def start_handler(message: types.Message):
         "Выберите интересующий вас раздел:"
     )
 
-    await message.answer(welcome_text, reply_markup=get_main_menu())
+    await message.answer(md_links_to_html(welcome_text), reply_markup=get_main_menu())
 
 
 @router.message(lambda msg: msg.text == "FAQ")
@@ -37,10 +38,10 @@ async def faq_handler(message: types.Message):
         "A: Выберите раздел 'Курсы' в меню.\n\n"
         "💬 Есть ещё вопросы? Напишите нам!"
     )
-    await message.answer(faq_text)
+    await message.answer(md_links_to_html(faq_text))
 
 
 @router.message(lambda msg: msg.text == "Подписка на уведомления")
 async def subscribe_handler(message: types.Message):
     """Обработчик раздела 'Подписка на уведомления'"""
-    await message.answer("Раздел 'Подписка на уведомления' в разработке...")
+    await message.answer(md_links_to_html("Раздел 'Подписка на уведомления' в разработке..."))
