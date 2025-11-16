@@ -9,7 +9,9 @@ from aiohttp import web
 
 from src.config import settings
 from src.handlers import courses, sections, start
+from src.services import broadcast
 from src.models import db_helper, Base
+from src.services.broadcast import broadcast_message
 from src.utils import load_all_data, update_from_notification
 
 logging.basicConfig(
@@ -80,6 +82,7 @@ def create_bot_and_dispatcher() -> tuple[Bot, Dispatcher]:
     dp.include_router(start.router)
     dp.include_router(sections.router)
     dp.include_router(courses.router)
+    dp.include_router(broadcast.admin_router)
 
     dp.startup.register(on_startup)
     dp.shutdown.register(on_shutdown)
@@ -169,7 +172,17 @@ async def start_polling():  # pragma: no cover
     # ВЫЗОВ lifespan() через контекстный менеджер
     async with lifespan():
         try:
-            await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
+
+            polling_task = asyncio.create_task(
+                dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
+            )
+
+            # После запуска бота сразу производится рассылка - довести до ума
+            logger.info("🔄 Запускаю тестовую рассылку...")
+            await broadcast_message(bot, text="test")
+
+            await polling_task
+
         finally:
             await bot.session.close()
 
