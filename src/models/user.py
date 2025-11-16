@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped
 
 from .base import Base
 
@@ -6,6 +6,6 @@ from .base import Base
 class User(Base):
     """Модель таблицы со столбцами"""
 
-    user_id: Mapped[int] = mapped_column(unique=True)
+    user_id: Mapped[int]
     status: Mapped[str]  # User or Admin
     mailing: Mapped[bool]
