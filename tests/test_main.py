@@ -114,8 +114,8 @@ class TestBotCreation:
             # Проверяем, что Dispatcher создан
             MockDispatcher.assert_called_once()
 
-            # Проверяем, что роутеры подключены (start, sections, courses)
-            assert mock_dp.include_router.call_count == 3
+            # Проверяем, что роутеры подключены (start, sections, courses, admin_router)
+            assert mock_dp.include_router.call_count == 4
 
             assert bot == mock_bot
             assert dp == mock_dp
