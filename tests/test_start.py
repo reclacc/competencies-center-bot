@@ -65,7 +65,7 @@ class TestMenuHandlers:
         response = message.answer.call_args[0][0]
 
         assert "Часто задаваемые вопросы" in response
-        assert "Что такое Центр компетенций" in response
+        assert "Что это за бот и для чего он нужен" in response
 
     async def test_subscribe_handler(self, message):
         """Проверка обработчика подписки"""
