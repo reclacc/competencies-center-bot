@@ -16,6 +16,7 @@ from src.utils import (
     get_partner_by_id,
     get_partners,
     get_target_groups,
+    md_links_to_html,
 )
 
 logger = logging.getLogger(__name__)
@@ -48,7 +49,7 @@ async def show_target_groups_list(message: types.Message, state: FSMContext):
 
     if not target_groups:
         text = "<b>👥 Целевые группы</b>\n\n" "Информация пока не загружена. Попробуйте позже."
-        await message.answer(text)
+        await message.answer(md_links_to_html(text))
         return
 
     text = (
@@ -56,8 +57,9 @@ async def show_target_groups_list(message: types.Message, state: FSMContext):
         f"Найдено записей: <b>{len(target_groups)}</b>\n"
         "Выберите целевую группу для подробной информации:"
     )
-
-    await message.answer(text, reply_markup=get_items_keyboard(target_groups, "target_group"))
+    await message.answer(
+        md_links_to_html(text), reply_markup=get_items_keyboard(target_groups, "target_group")
+    )
 
 
 @router.callback_query(F.data.startswith("target_group:"))
@@ -85,7 +87,7 @@ async def show_target_group_detail(callback: types.CallbackQuery, state: FSMCont
     text += "<i>Выберите действие ниже:</i>"
 
     await callback.message.edit_text(
-        text,
+        md_links_to_html(text),
         reply_markup=get_item_detail_keyboard("target_groups", item_id),
     )
 
@@ -108,7 +110,7 @@ async def back_to_target_groups_list(callback: types.CallbackQuery, state: FSMCo
     )
 
     await callback.message.edit_text(
-        text, reply_markup=get_items_keyboard(target_groups, "target_group")
+        md_links_to_html(text), reply_markup=get_items_keyboard(target_groups, "target_group")
     )
     await callback.answer()
 
@@ -133,7 +135,7 @@ async def show_events_list(message: types.Message, state: FSMContext):
         "Выберите мероприятие для подробной информации:"
     )
 
-    await message.answer(text, reply_markup=get_items_keyboard(events, "event"))
+    await message.answer(md_links_to_html(text), reply_markup=get_items_keyboard(events, "event"))
 
 
 @router.callback_query(F.data.startswith("event:"))
@@ -161,10 +163,9 @@ async def show_event_detail(callback: types.CallbackQuery, state: FSMContext):
     text += "<i>Выберите действие ниже:</i>"
 
     await callback.message.edit_text(
-        text,
+        md_links_to_html(text),
         reply_markup=get_item_detail_keyboard("events", item_id),
     )
-
     await callback.answer()
 
 
@@ -183,7 +184,9 @@ async def back_to_events_list(callback: types.CallbackQuery, state: FSMContext):
         "Выберите мероприятие для подробной информации:"
     )
 
-    await callback.message.edit_text(text, reply_markup=get_items_keyboard(events, "event"))
+    await callback.message.edit_text(
+        md_links_to_html(text), reply_markup=get_items_keyboard(events, "event")
+    )
     await callback.answer()
 
 
@@ -207,7 +210,9 @@ async def show_partners_list(message: types.Message, state: FSMContext):
         "Выберите партнёра для подробной информации:"
     )
 
-    await message.answer(text, reply_markup=get_items_keyboard(partners, "partner"))
+    await message.answer(
+        md_links_to_html(text), reply_markup=get_items_keyboard(partners, "partner")
+    )
 
 
 @router.callback_query(F.data.startswith("partner:"))
@@ -238,7 +243,7 @@ async def show_partner_detail(callback: types.CallbackQuery, state: FSMContext):
     text += "<i>Выберите действие ниже:</i>"
 
     await callback.message.edit_text(
-        text,
+        md_links_to_html(text),
         reply_markup=get_item_detail_keyboard("partners", item_id, link),
         disable_web_page_preview=True,
     )
@@ -261,7 +266,9 @@ async def back_to_partners_list(callback: types.CallbackQuery, state: FSMContext
         "Выберите партнёра для подробной информации:"
     )
 
-    await callback.message.edit_text(text, reply_markup=get_items_keyboard(partners, "partner"))
+    await callback.message.edit_text(
+        md_links_to_html(text), reply_markup=get_items_keyboard(partners, "partner")
+    )
     await callback.answer()
 
 
@@ -285,7 +292,9 @@ async def show_digital_products_list(message: types.Message, state: FSMContext):
         "Выберите продукт для подробной информации:"
     )
 
-    await message.answer(text, reply_markup=get_items_keyboard(products, "digital_product"))
+    await message.answer(
+        md_links_to_html(text), reply_markup=get_items_keyboard(products, "digital_product")
+    )
 
 
 @router.callback_query(F.data.startswith("digital_product:"))
@@ -316,7 +325,7 @@ async def show_digital_product_detail(callback: types.CallbackQuery, state: FSMC
     text += "<i>Выберите действие ниже:</i>"
 
     await callback.message.edit_text(
-        text,
+        md_links_to_html(text),
         reply_markup=get_item_detail_keyboard("digital_products", item_id, link),
         disable_web_page_preview=True,
     )
@@ -340,7 +349,7 @@ async def back_to_digital_products_list(callback: types.CallbackQuery, state: FS
     )
 
     await callback.message.edit_text(
-        text, reply_markup=get_items_keyboard(products, "digital_product")
+        md_links_to_html(text), reply_markup=get_items_keyboard(products, "digital_product")
     )
     await callback.answer()
 
@@ -365,7 +374,7 @@ async def show_areas_list(message: types.Message, state: FSMContext):
         "Выберите направление для подробной информации:"
     )
 
-    await message.answer(text, reply_markup=get_items_keyboard(areas, "area"))
+    await message.answer(md_links_to_html(text), reply_markup=get_items_keyboard(areas, "area"))
 
 
 @router.callback_query(F.data.startswith("area:"))
@@ -392,7 +401,7 @@ async def show_area_detail(callback: types.CallbackQuery, state: FSMContext):
     text += "<i>Выберите действие ниже:</i>"
 
     await callback.message.edit_text(
-        text,
+        md_links_to_html(text),
         reply_markup=get_item_detail_keyboard("areas", item_id),
     )
 
@@ -414,5 +423,7 @@ async def back_to_areas_list(callback: types.CallbackQuery, state: FSMContext):
         "Выберите направление для подробной информации:"
     )
 
-    await callback.message.edit_text(text, reply_markup=get_items_keyboard(areas, "area"))
+    await callback.message.edit_text(
+        md_links_to_html(text), reply_markup=get_items_keyboard(areas, "area")
+    )
     await callback.answer()

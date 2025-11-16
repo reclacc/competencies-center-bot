@@ -9,7 +9,7 @@ from src.keyboards.courses_keyboard import (
     get_course_detail_keyboard,
     get_courses_keyboard,
 )
-from src.utils import get_categories, get_course_by_id, get_courses_by_category
+from src.utils import get_categories, get_course_by_id, get_courses_by_category, md_links_to_html
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -38,12 +38,12 @@ async def show_courses_catalog(message: types.Message, state: FSMContext):
             "К сожалению, категории курсов пока не загружены. "
             "Попробуйте позже или обратитесь к администратору."
         )
-        await message.answer(text)
+        await message.answer(md_links_to_html(text))
         return
 
     text = "<b>📚 Каталог курсов</b>\n\n" "Выберите категорию для просмотра доступных курсов:"
 
-    await message.answer(text, reply_markup=get_course_categories_keyboard())
+    await message.answer(md_links_to_html(text), reply_markup=get_course_categories_keyboard())
 
 
 @router.callback_query(F.data.startswith("course_category:"))
@@ -64,7 +64,9 @@ async def show_courses_in_category(callback: types.CallbackQuery, state: FSMCont
 
     if not courses:
         text = f"<b>{category_name}</b>\n\n" "В этой категории пока нет курсов."
-        await callback.message.edit_text(text, reply_markup=get_course_categories_keyboard())
+        await callback.message.edit_text(
+            md_links_to_html(text), reply_markup=get_course_categories_keyboard()
+        )
     else:
         text = (
             f"<b>{category_name}</b>\n\n"
@@ -72,7 +74,7 @@ async def show_courses_in_category(callback: types.CallbackQuery, state: FSMCont
             "Выберите курс для подробной информации:"
         )
         await callback.message.edit_text(
-            text, reply_markup=get_courses_keyboard(courses, category_id)
+            md_links_to_html(text), reply_markup=get_courses_keyboard(courses, category_id)
         )
 
     await callback.answer()
@@ -110,7 +112,7 @@ async def show_course_detail(callback: types.CallbackQuery, state: FSMContext):
     current_category = data.get("current_category")
 
     await callback.message.edit_text(
-        text,
+        md_links_to_html(text),
         reply_markup=get_course_detail_keyboard(course_id, current_category, link),
         disable_web_page_preview=True,
     )
@@ -127,7 +129,9 @@ async def back_to_course_categories(callback: types.CallbackQuery, state: FSMCon
 
     text = "<b>📚 Каталог курсов</b>\n\n" "Выберите категорию для просмотра доступных курсов:"
 
-    await callback.message.edit_text(text, reply_markup=get_course_categories_keyboard())
+    await callback.message.edit_text(
+        md_links_to_html(text), reply_markup=get_course_categories_keyboard()
+    )
     await callback.answer()
 
 
@@ -153,5 +157,7 @@ async def back_to_courses(callback: types.CallbackQuery, state: FSMContext):
         "Выберите курс для подробной информации:"
     )
 
-    await callback.message.edit_text(text, reply_markup=get_courses_keyboard(courses, category_id))
+    await callback.message.edit_text(
+        md_links_to_html(text), reply_markup=get_courses_keyboard(courses, category_id)
+    )
     await callback.answer()

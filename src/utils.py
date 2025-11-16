@@ -1,7 +1,9 @@
 """Утилиты и данные для работы с Google Sheets"""
 
 import asyncio
+import html
 import logging
+import re
 from typing import Optional
 
 import gspread_asyncio
@@ -196,6 +198,39 @@ async def update_from_notification(notification_data: dict) -> bool:
     except Exception as e:
         logger.error(f"Ошибка при обновлении данных: {e}", exc_info=True)
         return False
+
+
+MDV2_CHARS_TO_ESCAPE = r"([_\*\[\]\(\)~`>#+\-=|{}\.!])"
+
+
+def md_links_to_html(text: str) -> str:
+    """
+    Преобразует Markdown-ссылки [текст](url) в HTML-ссылки <a href="url">текст</a>.
+
+    Эта функция:
+    1. Находит все [текст](url).
+    2. Превращает их в <a href="url_escaped">текст</a>.
+    3. Текст (label) НЕ экранирует, чтобы теги <b> и <i> внутри него работали.
+    4. URL (href) экранирует, чтобы ссылки с & или " были корректными.
+    """
+    if not text:
+        return text
+
+    # Паттерн для поиска [текст](url)
+    pattern = r"\[([^\]]+)\]\(([^)]+)\)"
+
+    def replacer(match):
+        label = match.group(1)  # Текст ссылки (оставляем "как есть")
+        url = match.group(2)  # URL ссылки
+
+        # Экранируем URL для безопасной вставки в атрибут href=""
+        # (Например, & превратится в &amp;)
+        url_escaped = html.escape(url, quote=True)
+
+        return f'<a href="{url_escaped}">{label}</a>'
+
+    # Находим все совпадения и заменяем их, используя функцию replacer
+    return re.sub(pattern, replacer, text)
 
 
 # -------------Функции доступа к данным-------------
