@@ -56,6 +56,8 @@ nano .env  # или любой другой редактор
 ```env
 # Токен бота
 BOT_TOKEN=12345
+# ID администраторов бота
+ADMINS=[1234567890]
 
 # Database
 DB_USER=postgres
