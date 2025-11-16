@@ -1,5 +1,4 @@
 from typing import List, Optional
-
 from pydantic import ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -9,6 +8,7 @@ class Settings(BaseSettings):
 
     # Telegram
     bot_token: str
+    admins: List[int]
 
     # Database
     db_user: str
