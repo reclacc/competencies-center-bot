@@ -19,7 +19,9 @@ async def create_user(user_id: int, user_status: str = "user", user_mailing: boo
         )
         session.add(user)
         await session.commit()
-        await session.refresh(user)
+        await session.close()
+
+        return user
 
 
 async def subscribe(message: types.Message, user_id: int) -> str:
@@ -42,5 +44,3 @@ async def subscribe(message: types.Message, user_id: int) -> str:
                 await message.answer("❌ Вы отписались от рассылки")
         else:
             await message.answer("❌ Пользователь не найден!\n" "❌ Начните с команды /start")
-
-    return "Подписка"
