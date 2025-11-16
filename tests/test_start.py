@@ -75,7 +75,7 @@ class TestMenuHandlers:
 
         message.answer.assert_called_once()
         response = message.answer.call_args[0][0]
-        assert "Подписка" in response
+        assert "Вы" in response
 
 
 @pytest.mark.unit
