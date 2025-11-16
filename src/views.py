@@ -1,9 +1,7 @@
 from sqlalchemy import select, ScalarResult
 from aiogram import types
 from sqlalchemy.engine import Result
-
-from src.models import db_helper
-from src.models import User
+from src.models import db_helper, User
 
 
 async def create_user(user_id: int, user_status: str = "user", user_mailing: bool = False):
@@ -23,7 +21,7 @@ async def create_user(user_id: int, user_status: str = "user", user_mailing: boo
         await session.refresh(user)
 
 
-async def subscribe(message: types.Message, user_id: int):
+async def subscribe(message: types.Message, user_id: int) -> str:
     async for session in db_helper.session_dependency():
         stmt = select(User).where(User.user_id == user_id)
         result: Result = await session.execute(stmt)
@@ -33,10 +31,6 @@ async def subscribe(message: types.Message, user_id: int):
         user = scalar_result.first()
 
         if user:
-
-            print(f"Статус пользователя: {user.status}")
-            print(f"Рассылка: {user.mailing}")
-
             # Меняем статус рассылки
             user.mailing = not user.mailing
             await session.commit()
@@ -46,4 +40,6 @@ async def subscribe(message: types.Message, user_id: int):
             else:
                 await message.answer("❌ Вы отписались от рассылки")
         else:
-            await message.answer("❌ Пользователь не найден")
+            await message.answer("❌ Пользователь не найден!\n" "❌ Начните с команды /start")
+
+    return "Подписка"
