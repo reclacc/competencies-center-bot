@@ -6,12 +6,13 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiohttp import web
+from sqlalchemy import text
 
-from src.config import settings
+from src.core.config import settings
+from src.core.database import db_helper
 from src.handlers import courses, sections, start
-from src.models import Base, db_helper
-from src.services import broadcast
-from src.services.broadcast import broadcast_message
+from src.handlers.admin import broadcast, user_management
+from src.models.base import Base
 from src.utils import load_all_data, update_from_notification
 
 logging.basicConfig(
@@ -24,16 +25,24 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan():
     """Контекстный менеджер для управления жизненным циклом приложения"""
-    logger.info("Creating database tables...")
-    async with db_helper.engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    logger.info("Database tables created successfully")
+    logger.info("Инициализация базы данных...")
+
+    # Проверка подключения
+    try:
+        async with db_helper.engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        logger.info("✅ Подключение к базе данных установлено")
+    except Exception as e:
+        logger.error(f"❌ Ошибка подключения к базе данных: {e}")
+        raise
+    
+    logger.info("База данных инициализирована")
 
     yield
 
-    logger.info("Closing database connections...")
+    logger.info("Закрытие соединений с БД...")
     await db_helper.engine.dispose()
-    logger.info("Database connections closed")
+    logger.info("Соединения закрыты")
 
 
 async def on_startup(bot: Bot):
@@ -78,11 +87,14 @@ def create_bot_and_dispatcher() -> tuple[Bot, Dispatcher]:
 
     dp = Dispatcher()
 
-    # Подключаем роутеры
+    # Административные роутеры
+    dp.include_router(broadcast.router)
+    dp.include_router(user_management.router)
+
+    # Основные пользовательские роутеры
     dp.include_router(start.router)
     dp.include_router(sections.router)
     dp.include_router(courses.router)
-    dp.include_router(broadcast.admin_router)
 
     dp.startup.register(on_startup)
     dp.shutdown.register(on_shutdown)
@@ -91,7 +103,7 @@ def create_bot_and_dispatcher() -> tuple[Bot, Dispatcher]:
 
 
 async def handle_webhook(request: web.Request):
-    """Обработчик вебхука"""
+    """Обработчик вебхука от Telegram"""
     bot: Bot = request.app["bot"]
     dp: Dispatcher = request.app["dp"]
 
@@ -169,20 +181,10 @@ async def start_polling():  # pragma: no cover
     """Запуск в режиме polling"""
     bot, dp = create_bot_and_dispatcher()
 
-    # ВЫЗОВ lifespan() через контекстный менеджер
     async with lifespan():
         try:
-
-            polling_task = asyncio.create_task(
-                dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
-            )
-
-            # После запуска бота сразу производится рассылка - довести до ума
-            logger.info("🔄 Запускаю тестовую рассылку...")
-            await broadcast_message(bot, text="test")
-
-            await polling_task
-
+            logger.info("Запуск бота в режиме polling...")
+            await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
         finally:
             await bot.session.close()
 

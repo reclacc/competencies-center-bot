@@ -1,81 +1,113 @@
+"""Сервис рассылки сообщений с автоочисткой заблокированных пользователей"""
+
+import asyncio
 import logging
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from aiogram import Router, types
-from aiogram.exceptions import TelegramForbiddenError
-from aiogram.filters import Command
-from sqlalchemy import select
-from sqlalchemy.engine import Result
+from aiogram.exceptions import (
+    TelegramBadRequest,
+    TelegramForbiddenError,
+    TelegramRetryAfter,
+)
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.config import settings
-from src.models import User, db_helper
+from src.repositories.user import UserRepository
 
 if TYPE_CHECKING:
-    from src.main import Bot
-
+    from aiogram import Bot
 
 logger = logging.getLogger(__name__)
 
-# Создаем роутер для административных команд
-admin_router = Router()
+
+@dataclass
+class BroadcastStats:
+    """Статистика рассылки"""
+
+    total: int = 0
+    success: int = 0
+    blocked: int = 0
+    failed: int = 0
+
+    def __str__(self) -> str:
+        return (
+            f"📊 Рассылка завершена:\n"
+            f"├─Всего пользователей: {self.total}\n"
+            f"├─✅ Доставлено: {self.success}\n"
+            f"├─❌ Заблокировали бота: {self.blocked}\n"
+            f"└─⚠️ Ошибки: {self.failed}"
+        )
 
 
-async def broadcast_message(bot: "Bot", text: str):
-    success, blocked, failed = 0, 0, 0
-    async for session in db_helper.session_dependency():
-        stmt = select(User).where(User.mailing)
-        result: Result = await session.execute(stmt)
-        scalars_result = result.scalars().all()
+class BroadcastService:
+    """Сервис для массовой рассылки сообщений"""
 
-        for user in scalars_result:
+    def __init__(self, session: AsyncSession):
+        self.repository = UserRepository(session)
+        self.session = session
+
+    async def broadcast_message(
+        self,
+        bot: "Bot",
+        text: str,
+        delay: float = 0.05,
+    ) -> BroadcastStats:
+        """
+        Отправить сообщение всем подписчикам с автоочисткой заблокированных.
+
+        Args:
+            bot: Экземпляр бота
+            text: Текст сообщения
+            delay: Задержка между отправками (защита от rate limit)
+
+        Returns:
+            BroadcastStats: Статистика рассылки
+        """
+        stats = BroadcastStats()
+        subscribers = await self.repository.get_subscribers()
+        stats.total = len(subscribers)
+
+        logger.info(f"Начинаю рассылку для {stats.total} подписчиков")
+
+        for user in subscribers:
             try:
                 await bot.send_message(user.user_id, text)
-                success += 1
+                stats.success += 1
+                await asyncio.sleep(delay)
 
             except TelegramForbiddenError as e:
-                # Пользователь заблокировал бота
-                blocked += 1
-                logger.warning(f"Ошибка {e}")
+                # Пользователь заблокировал бота - отписываем автоматически
+                stats.blocked += 1
+                await self.repository.update_mailing(user.user_id, False)
+                logger.warning(
+                    f"Пользователь {user.user_id} заблокировал бота, отписан от рассылки: {e}"
+                )
+
+            except TelegramRetryAfter as e:
+                # рейт лимит - ждём и повторяем
+                logger.warning(f"Rate limit, ожидание {e.retry_after} сек")
+                await asyncio.sleep(e.retry_after)
+
+                try:
+                    await bot.send_message(user.user_id, text)
+                    stats.success += 1
+                except Exception as retry_error:
+                    stats.failed += 1
+                    logger.error(f"Ошибка при повторной отправке: {retry_error}")
+
+            except TelegramBadRequest as e:
+                stats.failed += 1
+                logger.error(f"Некорректный запрос для {user.user_id}: {e}")
 
             except Exception as e:
-                # Прочие ошибки
-                failed += 1
-                logger.warning(f"Ошибка {e}")
+                stats.failed += 1
+                logger.error(
+                    f"Неизвестная ошибка при отправке {user.user_id}: {e}",
+                    exc_info=True,
+                )
 
-    logger.info(f"📊 Данные: ✅ {success}, ❌ {blocked}, ⚠️ {failed}")
+        # Коммитим все изменения (отписки заблокированных)
+        await self.session.commit()
 
-
-def is_admin(user_id: int) -> bool:
-    """Проверка пользователя на права администратора"""
-    return user_id in settings.admins
-
-
-@admin_router.message(Command("broadcast"))
-async def broadcast_command(message: types.Message):
-    if not is_admin(message.from_user.id):
-        logger.warning(
-            f"Пользователь {message.from_user.id} попытался использовать /broadcast без прав"
-        )
-
-        await message.answer("❌ У вас нет прав для использования этой команды")
-        return
-
-    command_text = message.text
-    parts = command_text.split(maxsplit=1)
-
-    if len(parts) < 2:
-        await message.answer(
-            "❌ Укажите текст для рассылки!\n" "Пример использования: /broadcast text"
-        )
-        return
-
-    # Извлечение текста для рассылки
-    text = parts[1].strip()
-
-    if not text:
-        await message.answer("❌ Текст рассылки не может быть пустым")
-        return
-
-    logger.warning(f"Пользователь {message.from_user.id} запустил рассылку")
-    await broadcast_message(bot=message.bot, text=text)
-    logger.warning(f"Пользователь {message.from_user.id} закончил рассылку")
+        logger.info(str(stats))
+        return stats

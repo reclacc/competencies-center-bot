@@ -4,7 +4,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, declared_attr, mapped_column
 class Base(DeclarativeBase):
     """Создание БД"""
 
-    __abstrac__ = True
+    __abstract__ = True
 
     @declared_attr.directive
     def __tablename__(cls):
