@@ -22,10 +22,6 @@ async def broadcast_command(message: types.Message, is_admin: bool):
 
     Использование: /broadcast <текст сообщения>
     """
-    if not message.text:
-        await message.answer("❌ Текст команды отсутствует")
-        return
-
     parts = message.text.split(maxsplit=1)
 
     if len(parts) < 2:
@@ -39,10 +35,6 @@ async def broadcast_command(message: types.Message, is_admin: bool):
         return
 
     text = parts[1].strip()
-
-    if not text:
-        await message.answer("❌ Текст рассылки не может быть пустым")
-        return
 
     # Подтверждение рассылки
     confirm_msg = await message.answer(

@@ -82,6 +82,33 @@ def callback_query(bot, user, message):
     return cq
 
 
+@pytest.fixture
+def mock_db_session():
+    """Мок сессии базы данных"""
+    session = AsyncMock()
+    session.commit = AsyncMock()
+    session.rollback = AsyncMock()
+    session.close = AsyncMock()
+    session.execute = AsyncMock()
+    session.scalar = AsyncMock()
+    return session
+
+
+@pytest.fixture
+def mock_db_user():
+    """Мок пользователя из БД"""
+    from unittest.mock import MagicMock
+    
+    user = MagicMock()
+    user.telegram_id = 123456789
+    user.username = "testuser"
+    user.first_name = "Test"
+    user.role = "user"
+    user.subscribed_to_mailing = False
+    user.is_admin = MagicMock(return_value=False)
+    return user
+
+
 @pytest.fixture(autouse=True)
 def reset_routers():
     """Сброс parent_router после каждого теста"""

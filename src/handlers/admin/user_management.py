@@ -22,10 +22,6 @@ async def promote_user(message: types.Message, is_admin: bool):
 
     Использование: /promote <user_id>
     """
-    if not message.text:
-        await message.answer("❌ Текст команды отсутствует")
-        return
-
     parts = message.text.split()
 
     if len(parts) < 2:
@@ -82,10 +78,6 @@ async def demote_user(message: types.Message, is_admin: bool):
 
     Использование: /demote <user_id>
     """
-    if not message.text:
-        await message.answer("❌ Текст команды отсутствует")
-        return
-
     parts = message.text.split()
 
     if len(parts) < 2:

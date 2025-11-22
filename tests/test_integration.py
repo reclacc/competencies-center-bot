@@ -1,6 +1,6 @@
 """Интеграционные тесты"""
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from aiogram.types import Message, Update, User
@@ -13,8 +13,22 @@ from src.handlers.start import faq_handler, start_handler
 class TestBotIntegration:
     """Интеграционные тесты бота"""
 
-    async def test_full_start_flow(self, message):
+    @patch("src.handlers.start.db_helper")
+    @patch("src.handlers.start.UserService")
+    async def test_full_start_flow(
+        self, mock_user_service_class, mock_db_helper, message, mock_db_user
+    ):
         """Тест полного flow команды /start"""
+        mock_session = AsyncMock()
+        mock_db_helper.session = MagicMock(return_value=mock_session)
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock()
+
+        mock_user_service = AsyncMock()
+        mock_user_service_class.return_value = mock_user_service
+        mock_db_user.is_admin = MagicMock(return_value=False)
+        mock_user_service.register_user = AsyncMock(return_value=(mock_db_user, True))
+
         # Настраиваем сообщение
         message.text = "/start"
         message.answer = AsyncMock()
@@ -42,8 +56,22 @@ class TestBotIntegration:
         response_text = message.answer.call_args[0][0]
         assert "Часто задаваемые вопросы" in response_text
 
-    async def test_multiple_users_interaction(self, message):
+    @patch("src.handlers.start.db_helper")
+    @patch("src.handlers.start.UserService")
+    async def test_multiple_users_interaction(
+        self, mock_user_service_class, mock_db_helper, message, mock_db_user
+    ):
         """Тест взаимодействия нескольких пользователей"""
+        mock_session = AsyncMock()
+        mock_db_helper.session = MagicMock(return_value=mock_session)
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock()
+
+        mock_user_service = AsyncMock()
+        mock_user_service_class.return_value = mock_user_service
+        mock_db_user.is_admin = MagicMock(return_value=False)
+        mock_user_service.register_user = AsyncMock(return_value=(mock_db_user, True))
+
         users = [
             User(id=1, is_bot=False, first_name="User1"),
             User(id=2, is_bot=False, first_name="User2"),
@@ -61,9 +89,22 @@ class TestBotIntegration:
             response = message.answer.call_args[0][0]
             assert user.first_name in response
 
-    async def test_all_menu_buttons(self, message):
+    @patch("src.handlers.start.db_helper")
+    @patch("src.handlers.start.UserService")
+    async def test_all_menu_buttons(
+        self, mock_user_service_class, mock_db_helper, message
+    ):
         """Тест всех основных кнопок меню"""
         from src.handlers.start import subscribe_handler
+
+        mock_session = AsyncMock()
+        mock_db_helper.session = MagicMock(return_value=mock_session)
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock()
+
+        mock_user_service = AsyncMock()
+        mock_user_service_class.return_value = mock_user_service
+        mock_user_service.toggle_mailing = AsyncMock(return_value=True)
 
         handlers = [
             ("FAQ", faq_handler),
@@ -102,7 +143,24 @@ class TestBotPerformance:
 
             update = Update(update_id=i, message=message)
 
-            await dispatcher.feed_update(bot, update)
+            # Мокаем БД для каждого update
+            with (
+                patch("src.handlers.start.db_helper") as mock_db_helper,
+                patch("src.handlers.start.UserService") as mock_user_service_class,
+            ):
+                mock_session = AsyncMock()
+                mock_db_helper.session = MagicMock(return_value=mock_session)
+                mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+                mock_session.__aexit__ = AsyncMock()
+
+                mock_user_service = AsyncMock()
+                mock_user_service_class.return_value = mock_user_service
+                
+                mock_db_user = MagicMock()
+                mock_db_user.is_admin = MagicMock(return_value=False)
+                mock_user_service.register_user = AsyncMock(return_value=(mock_db_user, True))
+
+                await dispatcher.feed_update(bot, update)
 
         # Если дошли сюда без ошибок - тест пройден
         assert True
@@ -129,8 +187,6 @@ class TestSectionsIntegrationFlow:
         PARTNERS.clear()
         DIGITAL_PRODUCTS.clear()
         AREAS.clear()
-
-        from unittest.mock import AsyncMock
 
         from aiogram.fsm.context import FSMContext
 
