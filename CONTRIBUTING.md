@@ -56,6 +56,16 @@ nano .env  # или любой другой редактор
 ```env
 # Токен бота
 BOT_TOKEN=12345
+# ID администраторов бота
+ADMINS=[1234567890]
+
+# Database
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=postgres
+DB_ECHO=true
 
 # Режим работы: false = polling, true = webhook
 WEBHOOK_MODE=true
@@ -76,8 +86,6 @@ GOOGLE_CREDENTIALS_FILE=credentials.json
 SHEET_ID=abcd1234
 GOOGLE_WEBHOOK_PATH=/receive_edit
 
-# Статическое поле
-SCOPES=["https://www.googleapis.com/auth/spreadsheets"]
 ```
 
 ### 4. Проверка установки

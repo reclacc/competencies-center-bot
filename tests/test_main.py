@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from aiogram import Bot, Dispatcher
 
-from src.main import create_bot_and_dispatcher, on_shutdown, on_startup
+from src.main import create_bot_and_dispatcher, lifespan, on_shutdown, on_startup
 
 
 @pytest.mark.unit
@@ -114,8 +114,9 @@ class TestBotCreation:
             # Проверяем, что Dispatcher создан
             MockDispatcher.assert_called_once()
 
-            # Проверяем, что роутеры подключены (start, sections, courses)
-            assert mock_dp.include_router.call_count == 3
+            # Проверяем, что роутеры подключены
+            # (broadcast, user_management, start, sections, courses = 5 роутеров)
+            assert mock_dp.include_router.call_count == 5
 
             assert bot == mock_bot
             assert dp == mock_dp
@@ -213,6 +214,53 @@ class TestWebhookHandler:
 
 
 @pytest.mark.unit
+class TestLifespan:
+    """Тесты для lifespan контекстного менеджера"""
+
+    @patch("src.main.db_helper.engine", new_callable=AsyncMock)
+    async def test_lifespan_db_connection_check(self, mock_engine):
+        """Проверка подключения к БД при запуске"""
+        # ВАЖНО: connect() - синхронный метод, возвращающий асинхронный контекстный менеджер
+        # AsyncMock по умолчанию делает методы асинхронными (не соответствует SQLAlchemy)
+        # Поэтому connect обычным MagicMock!!!
+        mock_engine.connect = MagicMock()
+
+        mock_connection = AsyncMock()
+        mock_connection.execute.return_value = None
+
+        # Настраиваем контекстный менеджер:
+        mock_engine.connect.return_value.__aenter__.return_value = mock_connection
+        mock_engine.connect.return_value.__aexit__.return_value = None
+
+        async with lifespan():
+            # Проверяем, что connect вызван (как синхронный метод)
+            mock_engine.connect.assert_called_once()
+            # Проверяем, что SQL запрос отправлен
+            mock_connection.execute.assert_called_once()
+
+        # тк mock_engine был создан как AsyncMock, dispose остался асинхронным
+        mock_engine.dispose.assert_called_once()
+
+    @patch("src.main.db_helper.engine", new_callable=AsyncMock)
+    async def test_lifespan_db_connection_error(self, mock_engine):
+        """Проверка обработки ошибки подключения к БД"""
+        # аналогично методу выше
+        mock_engine.connect = MagicMock()
+
+        mock_connection = AsyncMock()
+
+        mock_connection.execute.side_effect = Exception("Connection failed")
+
+        mock_engine.connect.return_value.__aenter__.return_value = mock_connection
+        mock_engine.connect.return_value.__aexit__.return_value = None
+
+        # Проверяем, что ошибка корректно пробрасывается
+        with pytest.raises(Exception, match="Connection failed"):
+            async with lifespan():
+                pass
+
+
+@pytest.mark.unit
 class TestLogging:
     """Тесты логирования"""
 
@@ -253,6 +301,21 @@ class TestLogging:
                 "вебхук" in str(call).lower() or "webhook" in str(call).lower()
                 for call in log_calls
             )
+
+    @patch("src.main.load_all_data")
+    @patch("src.main.logger")
+    async def test_startup_logging_data_load_success(self, mock_logger, mock_load_data, bot):
+        """Проверка логирования успешной загрузки данных"""
+        mock_load_data.return_value = None
+
+        with patch("src.main.settings") as mock_settings:
+            mock_settings.webhook_mode = False
+
+            await on_startup(bot)
+
+            # Проверяем что успешная загрузка была залогирована
+            log_calls = [str(call) for call in mock_logger.info.call_args_list]
+            assert any("успешно" in str(call).lower() for call in log_calls)
 
     @patch("src.main.load_all_data")
     @patch("src.main.logger")

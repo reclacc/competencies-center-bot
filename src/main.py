@@ -1,13 +1,17 @@
 import asyncio
 import logging
+from contextlib import asynccontextmanager
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiohttp import web
+from sqlalchemy import text
 
-from src.config import settings
+from src.core.config import settings
+from src.core.database import db_helper
 from src.handlers import courses, sections, start
+from src.handlers.admin import broadcast, user_management
 from src.utils import load_all_data, update_from_notification
 
 logging.basicConfig(
@@ -15,6 +19,29 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan():
+    """Контекстный менеджер для управления жизненным циклом приложения"""
+    logger.info("Инициализация базы данных...")
+
+    # Проверка подключения
+    try:
+        async with db_helper.engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        logger.info("✅ Подключение к базе данных установлено")
+    except Exception as e:
+        logger.error(f"❌ Ошибка подключения к базе данных: {e}")
+        raise
+
+    logger.info("База данных инициализирована")
+
+    yield
+
+    logger.info("Закрытие соединений с БД...")
+    await db_helper.engine.dispose()
+    logger.info("Соединения закрыты")
 
 
 async def on_startup(bot: Bot):
@@ -59,7 +86,11 @@ def create_bot_and_dispatcher() -> tuple[Bot, Dispatcher]:
 
     dp = Dispatcher()
 
-    # Подключаем роутеры
+    # Административные роутеры
+    dp.include_router(broadcast.router)
+    dp.include_router(user_management.router)
+
+    # Основные пользовательские роутеры
     dp.include_router(start.router)
     dp.include_router(sections.router)
     dp.include_router(courses.router)
@@ -71,7 +102,7 @@ def create_bot_and_dispatcher() -> tuple[Bot, Dispatcher]:
 
 
 async def handle_webhook(request: web.Request):
-    """Обработчик вебхука"""
+    """Обработчик вебхука от Telegram"""
     bot: Bot = request.app["bot"]
     dp: Dispatcher = request.app["dp"]
 
@@ -123,34 +154,38 @@ async def start_webhook():  # pragma: no cover
     app.router.add_post(settings.webhook_path, handle_webhook)
     app.router.add_post(settings.google_webhook_path, handle_google_edit)
 
-    # Вызов startup хендлеров
-    await on_startup(bot)
+    # ВЫЗОВ lifespan() через контекстный менеджер
+    async with lifespan():
+        # Вызов startup хендлеров
+        await on_startup(bot)
 
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, settings.app_host, settings.app_port)
+        runner = web.AppRunner(app)
+        await runner.setup()
+        site = web.TCPSite(runner, settings.app_host, settings.app_port)
 
-    logger.info(f"Сервер запущен на {settings.app_host}:{settings.app_port}")
-    logger.info(f"Telegram webhook: {settings.webhook_path}")
-    logger.info(f"Google Sheets webhook: {settings.google_webhook_path}")
+        logger.info(f"Сервер запущен на {settings.app_host}:{settings.app_port}")
+        logger.info(f"Telegram webhook: {settings.webhook_path}")
+        logger.info(f"Google Sheets webhook: {settings.google_webhook_path}")
 
-    await site.start()
+        await site.start()
 
-    try:
-        await asyncio.Event().wait()
-    finally:
-        await on_shutdown(bot)
-        await runner.cleanup()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            await on_shutdown(bot)
+            await runner.cleanup()
 
 
 async def start_polling():  # pragma: no cover
     """Запуск в режиме polling"""
     bot, dp = create_bot_and_dispatcher()
 
-    try:
-        await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
-    finally:
-        await bot.session.close()
+    async with lifespan():
+        try:
+            logger.info("Запуск бота в режиме polling...")
+            await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
+        finally:
+            await bot.session.close()
 
 
 async def main():  # pragma: no cover
