@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from aiogram import Bot, Dispatcher
 
-from src.main import create_bot_and_dispatcher, on_shutdown, on_startup, lifespan
+from src.main import create_bot_and_dispatcher, lifespan, on_shutdown, on_startup
 
 
 @pytest.mark.unit
@@ -222,12 +222,12 @@ class TestLifespan:
         """Проверка подключения к БД при запуске"""
         # ВАЖНО: connect() - синхронный метод, возвращающий асинхронный контекстный менеджер
         # AsyncMock по умолчанию делает методы асинхронными (не соответствует SQLAlchemy)
-        # Поэтому connect обычным MagicMock!!! 
+        # Поэтому connect обычным MagicMock!!!
         mock_engine.connect = MagicMock()
 
         mock_connection = AsyncMock()
         mock_connection.execute.return_value = None
-        
+
         # Настраиваем контекстный менеджер:
         mock_engine.connect.return_value.__aenter__.return_value = mock_connection
         mock_engine.connect.return_value.__aexit__.return_value = None
@@ -250,7 +250,7 @@ class TestLifespan:
         mock_connection = AsyncMock()
 
         mock_connection.execute.side_effect = Exception("Connection failed")
-        
+
         mock_engine.connect.return_value.__aenter__.return_value = mock_connection
         mock_engine.connect.return_value.__aexit__.return_value = None
 

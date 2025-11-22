@@ -1,7 +1,6 @@
 """Тесты для моделей"""
 
 import pytest
-from datetime import datetime
 
 from src.models.user import User, UserRole
 
@@ -72,7 +71,7 @@ class TestUserModel:
     def test_user_indexes_exist(self):
         """Проверка наличия индексов"""
         indexes = {idx.name for idx in User.__table__.indexes}
-        
+
         # Проверяем наличие индексов
         assert "ix_users_mailing" in indexes
         assert "ix_users_role" in indexes

@@ -16,22 +16,20 @@ class UserService:
     """Сервис для работы с пользователями"""
 
     def __init__(self, session: AsyncSession):
+        """Инициализация сервиса пользователей"""
         self.repository = UserRepository(session)
 
     async def register_user(self, user_id: int) -> tuple[User, bool]:
         """
         Регистрация пользователя при первом запуске.
+
         Автоматически назначает роль admin, если user_id в списке ADMINS.
 
         Returns:
             tuple[User, bool]: (пользователь, был_ли_создан)
         """
         # является ли пользователь администратором по списку
-        role = (
-            UserRole.ADMIN.value
-            if user_id in settings.admins
-            else UserRole.USER.value
-        )
+        role = UserRole.ADMIN.value if user_id in settings.admins else UserRole.USER.value
 
         user, created = await self.repository.get_or_create(
             user_id=user_id, role=role, mailing=False

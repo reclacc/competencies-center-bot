@@ -47,7 +47,7 @@ class TestAdminMiddleware:
 
         data = {}
 
-        result = await middleware(mock_handler, mock_message, data)
+        _ = await middleware(mock_handler, mock_message, data)
 
         # Проверяем что флаг is_admin установлен
         assert data["is_admin"] is True
@@ -75,7 +75,7 @@ class TestAdminMiddleware:
 
         data = {}
 
-        result = await middleware(mock_handler, mock_message, data)
+        _ = await middleware(mock_handler, mock_message, data)
 
         # Проверяем что флаг is_admin установлен
         assert data["is_admin"] is False

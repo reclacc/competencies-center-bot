@@ -1,12 +1,12 @@
 """Тесты для сервисов"""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from src.models.user import User, UserRole
-from src.services.user_service import UserService
 from src.services.broadcast import BroadcastService, BroadcastStats
+from src.services.user_service import UserService
 
 
 @pytest.mark.unit
@@ -69,9 +69,7 @@ class TestUserService:
             user, created = await service.register_user(999)
 
             assert created is False
-            mock_repository.update_role.assert_called_once_with(
-                999, UserRole.ADMIN.value
-            )
+            mock_repository.update_role.assert_called_once_with(999, UserRole.ADMIN.value)
 
     async def test_toggle_mailing_subscribe(self, service, mock_repository):
         """Тест подписки на рассылку"""

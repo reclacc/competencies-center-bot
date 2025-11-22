@@ -51,9 +51,7 @@ class TestDatabaseHelper:
 
     @patch("src.core.database.create_async_engine")
     @patch("src.core.database.async_sessionmaker")
-    async def test_session_context_manager_success(
-        self, mock_sessionmaker, mock_create_engine
-    ):
+    async def test_session_context_manager_success(self, mock_sessionmaker, mock_create_engine):
         """Проверка контекстного менеджера session при успехе"""
         from src.core.database import DatabaseHelper
 
@@ -82,9 +80,7 @@ class TestDatabaseHelper:
 
     @patch("src.core.database.create_async_engine")
     @patch("src.core.database.async_sessionmaker")
-    async def test_session_context_manager_error(
-        self, mock_sessionmaker, mock_create_engine
-    ):
+    async def test_session_context_manager_error(self, mock_sessionmaker, mock_create_engine):
         """Проверка контекстного менеджера session при ошибке"""
         from src.core.database import DatabaseHelper
 
@@ -108,7 +104,7 @@ class TestDatabaseHelper:
         db_helper = DatabaseHelper(url="postgresql+asyncpg://test")
 
         with pytest.raises(Exception, match="Test error"):
-            async with db_helper.session() as session:
+            async with db_helper.session() as _:
                 raise Exception("Test error")
 
         # Проверяем, что rollback был вызван

@@ -12,13 +12,12 @@ class UserRepository:
     """Репозиторий для операций с пользователями"""
 
     def __init__(self, session: AsyncSession):
+        """Инициализация репозитория пользователей"""
         self.session = session
 
     async def get_by_user_id(self, user_id: int) -> Optional[User]:
         """Получить пользователя по Telegram ID"""
-        result = await self.session.execute(
-            select(User).where(User.user_id == user_id)
-        )
+        result = await self.session.execute(select(User).where(User.user_id == user_id))
         return result.scalar_one_or_none()
 
     async def create(
@@ -74,21 +73,15 @@ class UserRepository:
 
     async def get_subscribers(self) -> list[User]:
         """Получить всех подписчиков рассылки"""
-        result = await self.session.execute(
-            select(User).where(User.mailing == True)  # noqa: E712
-        )
+        result = await self.session.execute(select(User).where(User.mailing == True))  # noqa: E712
         return list(result.scalars().all())
 
     async def get_admins(self) -> list[User]:
         """Получить всех администраторов"""
-        result = await self.session.execute(
-            select(User).where(User.role == UserRole.ADMIN.value)
-        )
+        result = await self.session.execute(select(User).where(User.role == UserRole.ADMIN.value))
         return list(result.scalars().all())
 
     async def count_subscribers(self) -> int:
         """Подсчитать количество подписчиков"""
-        result = await self.session.execute(
-            select(User).where(User.mailing == True)  # noqa: E712
-        )
+        result = await self.session.execute(select(User).where(User.mailing == True))  # noqa: E712
         return len(result.scalars().all())

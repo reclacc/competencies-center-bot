@@ -5,11 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from src.handlers.admin.broadcast import broadcast_command, broadcast_stats_command
-from src.handlers.admin.user_management import (
-    demote_user,
-    list_admins,
-    promote_user,
-)
+from src.handlers.admin.user_management import demote_user, list_admins, promote_user
 from src.models.user import User, UserRole
 
 
@@ -83,9 +79,7 @@ class TestBroadcastHandlers:
             User(user_id=1, mailing=True),
             User(user_id=2, mailing=True),
         ]
-        mock_broadcast_service.repository.get_subscribers = AsyncMock(
-            return_value=mock_users
-        )
+        mock_broadcast_service.repository.get_subscribers = AsyncMock(return_value=mock_users)
         mock_broadcast_service.repository.count_subscribers = AsyncMock(return_value=2)
 
         message.answer = AsyncMock()
@@ -104,9 +98,7 @@ class TestUserManagementHandlers:
 
     @patch("src.handlers.admin.user_management.db_helper")
     @patch("src.handlers.admin.user_management.UserService")
-    async def test_promote_user_success(
-        self, mock_user_service_class, mock_db_helper, message
-    ):
+    async def test_promote_user_success(self, mock_user_service_class, mock_db_helper, message):
         """Тест успешного повышения пользователя"""
         mock_session = AsyncMock()
         mock_db_helper.session = MagicMock(return_value=mock_session)
@@ -131,9 +123,7 @@ class TestUserManagementHandlers:
 
     @patch("src.handlers.admin.user_management.db_helper")
     @patch("src.handlers.admin.user_management.UserService")
-    async def test_promote_user_not_found(
-        self, mock_user_service_class, mock_db_helper, message
-    ):
+    async def test_promote_user_not_found(self, mock_user_service_class, mock_db_helper, message):
         """Тест повышения несуществующего пользователя"""
         mock_session = AsyncMock()
         mock_db_helper.session = MagicMock(return_value=mock_session)
@@ -203,9 +193,7 @@ class TestUserManagementHandlers:
 
     @patch("src.handlers.admin.user_management.db_helper")
     @patch("src.handlers.admin.user_management.UserService")
-    async def test_demote_user_success(
-        self, mock_user_service_class, mock_db_helper, message
-    ):
+    async def test_demote_user_success(self, mock_user_service_class, mock_db_helper, message):
         """Тест успешного понижения администратора"""
         mock_session = AsyncMock()
         mock_db_helper.session = MagicMock(return_value=mock_session)
@@ -245,9 +233,7 @@ class TestUserManagementHandlers:
 
     @patch("src.handlers.admin.user_management.db_helper")
     @patch("src.handlers.admin.user_management.UserService")
-    async def test_demote_user_not_admin(
-        self, mock_user_service_class, mock_db_helper, message
-    ):
+    async def test_demote_user_not_admin(self, mock_user_service_class, mock_db_helper, message):
         """Тест понижения обычного пользователя"""
         mock_session = AsyncMock()
         mock_db_helper.session = MagicMock(return_value=mock_session)
@@ -295,9 +281,7 @@ class TestUserManagementHandlers:
 
     @patch("src.handlers.admin.user_management.db_helper")
     @patch("src.handlers.admin.user_management.UserService")
-    async def test_list_admins_success(
-        self, mock_user_service_class, mock_db_helper, message
-    ):
+    async def test_list_admins_success(self, mock_user_service_class, mock_db_helper, message):
         """Тест вывода списка администраторов"""
         mock_session = AsyncMock()
         mock_db_helper.session = MagicMock(return_value=mock_session)
@@ -325,9 +309,7 @@ class TestUserManagementHandlers:
 
     @patch("src.handlers.admin.user_management.db_helper")
     @patch("src.handlers.admin.user_management.UserService")
-    async def test_list_admins_empty(
-        self, mock_user_service_class, mock_db_helper, message
-    ):
+    async def test_list_admins_empty(self, mock_user_service_class, mock_db_helper, message):
         """Тест вывода списка при отсутствии администраторов"""
         mock_session = AsyncMock()
         mock_db_helper.session = MagicMock(return_value=mock_session)

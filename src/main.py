@@ -12,7 +12,6 @@ from src.core.config import settings
 from src.core.database import db_helper
 from src.handlers import courses, sections, start
 from src.handlers.admin import broadcast, user_management
-from src.models.base import Base
 from src.utils import load_all_data, update_from_notification
 
 logging.basicConfig(
@@ -35,7 +34,7 @@ async def lifespan():
     except Exception as e:
         logger.error(f"❌ Ошибка подключения к базе данных: {e}")
         raise
-    
+
     logger.info("База данных инициализирована")
 
     yield

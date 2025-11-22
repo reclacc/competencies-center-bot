@@ -60,8 +60,7 @@ async def subscribe_handler(message: types.Message):
 
     if new_status is None:
         await message.answer(
-            "❌ Пользователь не найден!\n"
-            "Начните с команды /start для регистрации."
+            "❌ Пользователь не найден!\n" "Начните с команды /start для регистрации."
         )
         return
 
@@ -72,6 +71,5 @@ async def subscribe_handler(message: types.Message):
         )
     else:
         await message.answer(
-            "❌ Вы отписались от рассылки\n\n"
-            "Вы больше не будете получать уведомления."
+            "❌ Вы отписались от рассылки\n\n" "Вы больше не будете получать уведомления."
         )

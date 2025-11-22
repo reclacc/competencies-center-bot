@@ -64,9 +64,7 @@ async def promote_user(message: types.Message, is_admin: bool):
             await message.answer(
                 f"✅ Пользователь <code>{target_user_id}</code> повышен до администратора"
             )
-            logger.info(
-                f"Администратор {message.from_user.id} повысил {target_user_id} до admin"
-            )
+            logger.info(f"Администратор {message.from_user.id} повысил {target_user_id} до admin")
         else:
             await message.answer("❌ Не удалось повысить пользователя")
 
@@ -121,9 +119,7 @@ async def demote_user(message: types.Message, is_admin: bool):
             await message.answer(
                 f"✅ Администратор <code>{target_user_id}</code> понижен до обычного пользователя"
             )
-            logger.info(
-                f"Администратор {message.from_user.id} понизил {target_user_id} до user"
-            )
+            logger.info(f"Администратор {message.from_user.id} понизил {target_user_id} до user")
         else:
             await message.answer("❌ Не удалось понизить пользователя")
 
@@ -142,6 +138,4 @@ async def list_admins(message: types.Message, is_admin: bool):
     admin_list = "\n".join([f"├ <code>{admin.user_id}</code>" for admin in admins[:-1]])
     admin_list += f"\n└ <code>{admins[-1].user_id}</code>"
 
-    await message.answer(
-        f"👥 <b>Список администраторов ({len(admins)}):</b>\n\n{admin_list}"
-    )
+    await message.answer(f"👥 <b>Список администраторов ({len(admins)}):</b>\n\n{admin_list}")

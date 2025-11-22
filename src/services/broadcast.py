@@ -5,11 +5,7 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from aiogram.exceptions import (
-    TelegramBadRequest,
-    TelegramForbiddenError,
-    TelegramRetryAfter,
-)
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError, TelegramRetryAfter
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.repositories.user import UserRepository
@@ -30,6 +26,7 @@ class BroadcastStats:
     failed: int = 0
 
     def __str__(self) -> str:
+        """Возвращает форматированную строку со статистикой рассылки"""
         return (
             f"📊 Рассылка завершена:\n"
             f"├─Всего пользователей: {self.total}\n"
@@ -43,6 +40,7 @@ class BroadcastService:
     """Сервис для массовой рассылки сообщений"""
 
     def __init__(self, session: AsyncSession):
+        """Инициализация сервиса рассылки"""
         self.repository = UserRepository(session)
         self.session = session
 

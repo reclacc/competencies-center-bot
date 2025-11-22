@@ -91,9 +91,7 @@ class TestBotIntegration:
 
     @patch("src.handlers.start.db_helper")
     @patch("src.handlers.start.UserService")
-    async def test_all_menu_buttons(
-        self, mock_user_service_class, mock_db_helper, message
-    ):
+    async def test_all_menu_buttons(self, mock_user_service_class, mock_db_helper, message):
         """Тест всех основных кнопок меню"""
         from src.handlers.start import subscribe_handler
 
@@ -155,7 +153,7 @@ class TestBotPerformance:
 
                 mock_user_service = AsyncMock()
                 mock_user_service_class.return_value = mock_user_service
-                
+
                 mock_db_user = MagicMock()
                 mock_db_user.is_admin = MagicMock(return_value=False)
                 mock_user_service.register_user = AsyncMock(return_value=(mock_db_user, True))

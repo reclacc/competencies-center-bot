@@ -17,6 +17,13 @@ class DatabaseHelper:
     """Хелпер для работы с БД"""
 
     def __init__(self, url: str, echo: bool = False):
+        """
+        Инициализация хелпера базы данных
+
+        Args:
+            url: URL для подключения к базе данных
+            echo: Включить логирование SQL запросов (по умолчанию False)
+        """
         self.engine: AsyncEngine = create_async_engine(
             url=url,
             echo=echo,

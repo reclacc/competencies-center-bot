@@ -25,7 +25,7 @@ class TestStartHandler:
 
         mock_user_service = AsyncMock()
         mock_user_service_class.return_value = mock_user_service
-        
+
         # Новый пользователь
         mock_db_user.is_admin = MagicMock(return_value=False)
         mock_user_service.register_user = AsyncMock(return_value=(mock_db_user, True))
@@ -61,7 +61,7 @@ class TestStartHandler:
 
         mock_user_service = AsyncMock()
         mock_user_service_class.return_value = mock_user_service
-        
+
         # Существующий пользователь
         mock_db_user.is_admin = MagicMock(return_value=False)
         mock_user_service.register_user = AsyncMock(return_value=(mock_db_user, False))
@@ -88,7 +88,7 @@ class TestStartHandler:
 
         mock_user_service = AsyncMock()
         mock_user_service_class.return_value = mock_user_service
-        
+
         # Администратор
         mock_db_user.is_admin = MagicMock(return_value=True)
         mock_user_service.register_user = AsyncMock(return_value=(mock_db_user, False))
@@ -140,7 +140,7 @@ class TestMenuHandlers:
 
         message.answer.assert_called_once()
         response = message.answer.call_args[0][0]
-        
+
         assert "подписаны" in response.lower()
         assert "✅" in response
 
@@ -165,7 +165,7 @@ class TestMenuHandlers:
 
         message.answer.assert_called_once()
         response = message.answer.call_args[0][0]
-        
+
         assert "отписались" in response.lower()
         assert "❌" in response
 
@@ -190,7 +190,7 @@ class TestMenuHandlers:
 
         message.answer.assert_called_once()
         response = message.answer.call_args[0][0]
-        
+
         assert "не найден" in response.lower()
 
 

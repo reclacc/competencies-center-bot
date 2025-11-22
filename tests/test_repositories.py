@@ -1,6 +1,6 @@
 """Тесты для репозиториев"""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -52,9 +52,7 @@ class TestUserRepository:
 
     async def test_create_user(self, repository, mock_session):
         """Тест создания пользователя"""
-        result = await repository.create(
-            user_id=123, role=UserRole.USER.value, mailing=False
-        )
+        result = await repository.create(user_id=123, role=UserRole.USER.value, mailing=False)
 
         assert isinstance(result, User)
         assert result.user_id == 123

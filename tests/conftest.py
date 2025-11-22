@@ -98,7 +98,7 @@ def mock_db_session():
 def mock_db_user():
     """Мок пользователя из БД"""
     from unittest.mock import MagicMock
-    
+
     user = MagicMock()
     user.telegram_id = 123456789
     user.username = "testuser"

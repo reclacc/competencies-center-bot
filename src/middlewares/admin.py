@@ -23,6 +23,7 @@ class AdminMiddleware(BaseMiddleware):
     ) -> Any:
         """
         Проверяет права администратора перед выполнением обработчика.
+
         Добавляет в data флаг is_admin.
         """
         user_id = event.from_user.id
@@ -34,12 +35,8 @@ class AdminMiddleware(BaseMiddleware):
         data["is_admin"] = is_admin
 
         if not is_admin:
-            logger.warning(
-                f"Пользователь {user_id} попытался использовать админ-команду без прав"
-            )
-            await event.answer(
-                "❌ У вас нет прав для использования этой команды."
-            )
+            logger.warning(f"Пользователь {user_id} попытался использовать админ-команду без прав")
+            await event.answer("❌ У вас нет прав для использования этой команды.")
             return
 
         return await handler(event, data)

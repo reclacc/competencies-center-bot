@@ -24,12 +24,8 @@ class User(Base):
     # переопределяем id для использования user_id как первичного ключа
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
 
-    user_id: Mapped[int] = mapped_column(
-        BigInteger, unique=True, nullable=False, index=True
-    )
-    role: Mapped[str] = mapped_column(
-        String(20), default=UserRole.USER.value, nullable=False
-    )
+    user_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False, index=True)
+    role: Mapped[str] = mapped_column(String(20), default=UserRole.USER.value, nullable=False)
     mailing: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # метеданные
@@ -54,4 +50,5 @@ class User(Base):
         return self.role == UserRole.ADMIN.value
 
     def __repr__(self) -> str:
+        """Возвращает строковое представление объекта User"""
         return f"<User(user_id={self.user_id}, role={self.role}, mailing={self.mailing})>"
