@@ -7,7 +7,7 @@ from typing import Optional
 import gspread_asyncio
 from google.oauth2.service_account import Credentials
 
-from src.config import settings
+from src.core.config import settings
 
 logger = logging.getLogger(__name__)
 

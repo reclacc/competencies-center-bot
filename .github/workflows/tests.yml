@@ -40,8 +40,22 @@ jobs:
     - name: Set up environment variables
       env:
         BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+        ADMINS: '[1234567890]'
+        DB_USER: 'postgres'
+        DB_PASSWORD: 'postgres'
+        DB_HOST: 'localhost'
+        DB_PORT: '5432'
+        DB_NAME: 'postgres'
+        DB_ECHO: 'true'
       run: |
         echo "BOT_TOKEN=$BOT_TOKEN" >> $GITHUB_ENV
+        echo "ADMINS=$ADMINS" >> $GITHUB_ENV
+        echo "DB_USER=$DB_USER" >> $GITHUB_ENV
+        echo "DB_PASSWORD=$DB_PASSWORD" >> $GITHUB_ENV
+        echo "DB_HOST=$DB_HOST" >> $GITHUB_ENV
+        echo "DB_PORT=$DB_PORT" >> $GITHUB_ENV
+        echo "DB_NAME=$DB_NAME" >> $GITHUB_ENV
+        echo "DB_ECHO=$DB_ECHO" >> $GITHUB_ENV
         echo "WEBHOOK_MODE=false" >> $GITHUB_ENV
         echo "WEBHOOK_URL=" >> $GITHUB_ENV
         echo "WEBHOOK_PATH=/webhook" >> $GITHUB_ENV
