@@ -8,6 +8,7 @@ from aiogram.filters import CommandStart
 from src.core.database import db_helper
 from src.keyboards.main_menu import get_main_menu
 from src.services.user_service import UserService
+from src.utils import format_faq_text
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -38,14 +39,7 @@ async def start_handler(message: types.Message):
 @router.message(lambda msg: msg.text == "FAQ")
 async def faq_handler(message: types.Message):
     """Обработчик кнопки FAQ"""
-    faq_text = (
-        "<b>Часто задаваемые вопросы</b>\n\n"
-        "<b>Q: Что такое Центр компетенций?</b>\n"
-        "A: Это образовательный центр для развития навыков...\n\n"
-        "<b>Q: Как получить доступ к платформам?</b>\n"
-        "A: Выберите раздел 'Курсы' в меню.\n\n"
-        "💬 Есть ещё вопросы? Напишите нам!"
-    )
+    faq_text = format_faq_text()
     await message.answer(faq_text)
 
 

@@ -19,6 +19,7 @@ PARTNERS = []  # Партнёры
 DIGITAL_PRODUCTS = []  # Цифровые продукты
 AREAS = []  # Направления
 COURSES = []  # Курсы
+FAQ_ITEMS = []  # FAQ вопросы-ответы
 
 # Маппинг листов на глобальные переменные
 SHEET_MAPPING = {
@@ -29,6 +30,7 @@ SHEET_MAPPING = {
     "areas": AREAS,
     "courses": COURSES,
     "categories": CATEGORIES,
+    "faq": FAQ_ITEMS,
 }
 
 
@@ -257,3 +259,43 @@ def get_categories() -> list[dict]:
 def get_courses_by_category(category_id: str) -> list[dict]:
     """Получить курсы по категории"""
     return [c for c in COURSES if str(c.get("category_id")) == str(category_id)]
+
+
+def get_faq_items() -> list[dict]:
+    """
+    Получить список FAQ вопросов-ответов
+
+    Returns:
+        list[dict]: Список с полями: id, question, answer
+    """
+    return FAQ_ITEMS
+
+
+def format_faq_text() -> str:
+    """
+    Форматировать FAQ в читаемый текст
+
+    Returns:
+        str: Отформатированный текст FAQ
+    """
+    faq_items = get_faq_items()
+
+    if not faq_items:
+        return (
+            "<b>❓ Часто задаваемые вопросы</b>\n\n"
+            "Информация пока не загружена. Попробуйте позже."
+        )
+
+    text = "<b>❓ Часто задаваемые вопросы</b>\n\n"
+
+    for item in faq_items:
+        question = item.get("question", "")
+        answer = item.get("answer", "")
+
+        if question and answer:
+            text += f"<b>Q: {question}</b>\n"
+            text += f"A: {answer}\n\n"
+
+    text += "💬 <i>Есть ещё вопросы? Напишите нам!</i>"
+
+    return text
