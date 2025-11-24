@@ -1,5 +1,7 @@
 """Тесты для хендлера /start"""
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 from aiogram.filters import CommandStart
 
@@ -10,8 +12,24 @@ from src.handlers.start import faq_handler, router, start_handler, subscribe_han
 class TestStartHandler:
     """Тесты для команды /start"""
 
-    async def test_start_command(self, message, user):
-        """Проверка ответа на команду /start"""
+    @patch("src.handlers.start.db_helper")
+    @patch("src.handlers.start.UserService")
+    async def test_start_command_new_user(
+        self, mock_user_service_class, mock_db_helper, message, user, mock_db_user
+    ):
+        """Проверка ответа на команду /start для нового пользователя"""
+        mock_session = AsyncMock()
+        mock_db_helper.session = MagicMock(return_value=mock_session)
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock()
+
+        mock_user_service = AsyncMock()
+        mock_user_service_class.return_value = mock_user_service
+
+        # Новый пользователь
+        mock_db_user.is_admin = MagicMock(return_value=False)
+        mock_user_service.register_user = AsyncMock(return_value=(mock_db_user, True))
+
         message.text = "/start"
 
         await start_handler(message)
@@ -25,30 +43,64 @@ class TestStartHandler:
 
         assert user.first_name in response_text
         assert "Добро пожаловать" in response_text
-        assert "Центра компетенций" in response_text
+        assert "🆕" in response_text  # новый пользователь
 
         # Проверяем наличие клавиатуры
         assert "reply_markup" in call_args[1]
 
-    async def test_start_handler_with_different_users(self, message):
-        """Проверка /start для разных пользователей"""
-        from aiogram.types import User
+    @patch("src.handlers.start.db_helper")
+    @patch("src.handlers.start.UserService")
+    async def test_start_command_existing_user(
+        self, mock_user_service_class, mock_db_helper, message, user, mock_db_user
+    ):
+        """Проверка ответа на команду /start для существующего пользователя"""
+        mock_session = AsyncMock()
+        mock_db_helper.session = MagicMock(return_value=mock_session)
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock()
 
-        users = [
-            User(id=1, is_bot=False, first_name="Иван"),
-            User(id=2, is_bot=False, first_name="Мария"),
-            User(id=3, is_bot=False, first_name="Test"),
-        ]
+        mock_user_service = AsyncMock()
+        mock_user_service_class.return_value = mock_user_service
 
-        for user in users:
-            message.from_user = user
-            message.answer.reset_mock()
+        # Существующий пользователь
+        mock_db_user.is_admin = MagicMock(return_value=False)
+        mock_user_service.register_user = AsyncMock(return_value=(mock_db_user, False))
 
-            await start_handler(message)
+        message.text = "/start"
 
-            message.answer.assert_called_once()
-            response = message.answer.call_args[0][0]
-            assert user.first_name in response
+        await start_handler(message)
+
+        message.answer.assert_called_once()
+        response_text = message.answer.call_args[0][0]
+
+        assert "👋" in response_text  # существующий пользователь
+
+    @patch("src.handlers.start.db_helper")
+    @patch("src.handlers.start.UserService")
+    async def test_start_command_admin_user(
+        self, mock_user_service_class, mock_db_helper, message, user, mock_db_user
+    ):
+        """Проверка ответа на команду /start для администратора"""
+        mock_session = AsyncMock()
+        mock_db_helper.session = MagicMock(return_value=mock_session)
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock()
+
+        mock_user_service = AsyncMock()
+        mock_user_service_class.return_value = mock_user_service
+
+        # Администратор
+        mock_db_user.is_admin = MagicMock(return_value=True)
+        mock_user_service.register_user = AsyncMock(return_value=(mock_db_user, False))
+
+        message.text = "/start"
+
+        await start_handler(message)
+
+        message.answer.assert_called_once()
+        response_text = message.answer.call_args[0][0]
+
+        assert "администратор" in response_text
 
 
 @pytest.mark.unit
@@ -66,15 +118,79 @@ class TestMenuHandlers:
 
         assert "Часто задаваемые вопросы" in response
 
-    async def test_subscribe_handler(self, message):
-        """Проверка обработчика подписки"""
+    @patch("src.handlers.start.db_helper")
+    @patch("src.handlers.start.UserService")
+    async def test_subscribe_handler_subscribe(
+        self, mock_user_service_class, mock_db_helper, message, user
+    ):
+        """Проверка обработчика подписки - подписка"""
+        mock_session = AsyncMock()
+        mock_db_helper.session = MagicMock(return_value=mock_session)
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock()
+
+        mock_user_service = AsyncMock()
+        mock_user_service_class.return_value = mock_user_service
+        mock_user_service.toggle_mailing = AsyncMock(return_value=True)
+
         message.text = "Подписка на уведомления"
 
         await subscribe_handler(message)
 
         message.answer.assert_called_once()
         response = message.answer.call_args[0][0]
-        assert "Подписка" in response
+
+        assert "подписаны" in response.lower()
+        assert "✅" in response
+
+    @patch("src.handlers.start.db_helper")
+    @patch("src.handlers.start.UserService")
+    async def test_subscribe_handler_unsubscribe(
+        self, mock_user_service_class, mock_db_helper, message, user
+    ):
+        """Проверка обработчика подписки - отписка"""
+        mock_session = AsyncMock()
+        mock_db_helper.session = MagicMock(return_value=mock_session)
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock()
+
+        mock_user_service = AsyncMock()
+        mock_user_service_class.return_value = mock_user_service
+        mock_user_service.toggle_mailing = AsyncMock(return_value=False)
+
+        message.text = "Подписка на уведомления"
+
+        await subscribe_handler(message)
+
+        message.answer.assert_called_once()
+        response = message.answer.call_args[0][0]
+
+        assert "отписались" in response.lower()
+        assert "❌" in response
+
+    @patch("src.handlers.start.db_helper")
+    @patch("src.handlers.start.UserService")
+    async def test_subscribe_handler_user_not_found(
+        self, mock_user_service_class, mock_db_helper, message, user
+    ):
+        """Проверка обработчика подписки - пользователь не найден"""
+        mock_session = AsyncMock()
+        mock_db_helper.session = MagicMock(return_value=mock_session)
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock()
+
+        mock_user_service = AsyncMock()
+        mock_user_service_class.return_value = mock_user_service
+        mock_user_service.toggle_mailing = AsyncMock(return_value=None)
+
+        message.text = "Подписка на уведомления"
+
+        await subscribe_handler(message)
+
+        message.answer.assert_called_once()
+        response = message.answer.call_args[0][0]
+
+        assert "не найден" in response.lower()
 
 
 @pytest.mark.unit
