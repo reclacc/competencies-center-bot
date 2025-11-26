@@ -117,7 +117,6 @@ class TestMenuHandlers:
         response = message.answer.call_args[0][0]
 
         assert "Часто задаваемые вопросы" in response
-        assert "Что такое Центр компетенций" in response
 
     @patch("src.handlers.start.db_helper")
     @patch("src.handlers.start.UserService")

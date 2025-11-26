@@ -1,7 +1,9 @@
 """Утилиты и данные для работы с Google Sheets"""
 
 import asyncio
+import html
 import logging
+import re
 from typing import Optional
 
 import gspread_asyncio
@@ -19,6 +21,7 @@ PARTNERS = []  # Партнёры
 DIGITAL_PRODUCTS = []  # Цифровые продукты
 AREAS = []  # Направления
 COURSES = []  # Курсы
+FAQ_ITEMS = []  # FAQ вопросы-ответы
 
 # Маппинг листов на глобальные переменные
 SHEET_MAPPING = {
@@ -29,7 +32,32 @@ SHEET_MAPPING = {
     "areas": AREAS,
     "courses": COURSES,
     "categories": CATEGORIES,
+    "faq": FAQ_ITEMS,
 }
+
+
+def format_text(text: str) -> str:
+    """
+    Форматирует текст: обрабатывает Markdown-ссылки и очищает лишние пробелы.
+
+    ВАЖНО: Эта функция применяется ТОЛЬКО при загрузке данных из Google Sheets.
+    Для форматирования текста в runtime используйте обёртки send_message и т.д.
+
+    Args:
+        text: Исходный текст
+
+    Returns:
+        str: Отформатированный текст
+    """
+    if not text:
+        return text
+
+    text = md_links_to_html(text)
+
+    # Убираем лишние пробелы и переносы строк
+    text = re.sub(r"\n\s*\n\s*\n+", "\n\n", text)  # Множественные переносы в двойной
+
+    return text.strip()
 
 
 def get_creds():
@@ -90,7 +118,11 @@ async def load_sheet_data(sheet_name: str) -> list[dict]:
                 elif value == "NULL":
                     processed_record[key] = None
                 else:
-                    processed_record[key] = value
+                    # Применяем форматирование ТОЛЬКО к текстовым полям при загрузке
+                    if isinstance(value, str) and key in ["description", "answer", "text"]:
+                        processed_record[key] = format_text(value)
+                    else:
+                        processed_record[key] = value
 
             data.append(processed_record)
 
@@ -127,7 +159,8 @@ async def get_sheet_description(sheet_name: str) -> Optional[str]:
         # Ищем строку с id=0
         for record in records:
             if str(record.get("id", "")) == "0":
-                return record.get("description", "")
+                description = record.get("description", "")
+                return format_text(description) if description else ""
 
         return None
 
@@ -196,6 +229,66 @@ async def update_from_notification(notification_data: dict) -> bool:
         return False
 
 
+def format_faq_text() -> str:
+    """
+    Форматировать FAQ в читаемый текст
+
+    Returns:
+        str: Отформатированный текст FAQ
+    """
+    faq_items = get_faq_items()
+
+    if not faq_items:
+        return (
+            "<b>❓ Часто задаваемые вопросы</b>\n\n"
+            "Информация пока не загружена. Попробуйте позже."
+        )
+
+    text = "<b>❓ Часто задаваемые вопросы</b>\n\n"
+
+    for item in faq_items:
+        question = item.get("question", "")
+        answer = item.get("answer", "")
+
+        if question and answer:
+            text += f"<b>Q: {question}</b>\n"
+            text += f"A: {answer}\n\n"
+
+    text += "💬 <i>Есть ещё вопросы? Напишите нам!</i>"
+
+    return text
+
+
+def md_links_to_html(text: str) -> str:
+    """
+    Преобразует Markdown-ссылки [текст](url) в HTML-ссылки <a href="url">текст</a>.
+
+    Эта функция:
+    1. Находит все [текст](url).
+    2. Превращает их в <a href="url_escaped">текст</a>.
+    3. Текст (label) НЕ экранирует, чтобы теги <b> и <i> внутри него работали.
+    4. URL (href) экранирует, чтобы ссылки с & или " были корректными.
+    """
+    if not text:
+        return text
+
+    # Паттерн для поиска [текст](url)
+    pattern = r"\[([^\]]+)\]\(([^)]+)\)"
+
+    def replacer(match):
+        label = match.group(1)  # Текст ссылки (оставляем "как есть")
+        url = match.group(2).strip()  # URL ссылки
+
+        # Экранируем URL для безопасной вставки в атрибут href=""
+        # (Например, & превратится в &amp;)
+        url_escaped = html.escape(url, quote=True)
+
+        return f'<a href="{url_escaped}">{label}</a>'
+
+    # Находим все совпадения и заменяем их, используя функцию replacer
+    return re.sub(pattern, replacer, text)
+
+
 # -------------Функции доступа к данным-------------
 
 
@@ -257,3 +350,13 @@ def get_categories() -> list[dict]:
 def get_courses_by_category(category_id: str) -> list[dict]:
     """Получить курсы по категории"""
     return [c for c in COURSES if str(c.get("category_id")) == str(category_id)]
+
+
+def get_faq_items() -> list[dict]:
+    """
+    Получить список FAQ вопросов-ответов
+
+    Returns:
+        list[dict]: Список с полями: id, question, answer
+    """
+    return FAQ_ITEMS

@@ -19,6 +19,7 @@ from src.utils import (
     get_target_groups,
     load_all_data,
     load_sheet_data,
+    md_links_to_html,
     update_from_notification,
 )
 
@@ -347,3 +348,61 @@ class TestUpdateFromNotification:
         result = await update_from_notification(notification)
 
         assert result is False
+
+
+@pytest.mark.unit
+class TestMdLinksToHtml:
+    """
+    Тесты утилиты преобразования Markdown-ссылок в HTML-теги.
+
+    (Заменяет предыдущий TestFormatLinks)
+    """
+
+    def test_single_link_conversion(self):
+        """Тест форматирования одной ссылки в HTML-тег."""
+        # Ожидаем HTML: <a href="url">текст</a>. Экранирование спецсимволов не требуется.
+        assert (
+            md_links_to_html("Смотри тут: [Google](https://google.com)")
+            == 'Смотри тут: <a href="https://google.com">Google</a>'
+        )
+
+    def test_multiple_links_conversion(self):
+        """Тест форматирования нескольких ссылок в одном тексте."""
+        text = "Вот [ссылка1](https://1.com)! И [ссылка2](https://2.com)."
+        out = md_links_to_html(text)
+        # Обратите внимание: текст вокруг ссылок остается *без* экранирования!
+        assert out == (
+            'Вот <a href="https://1.com">ссылка1</a>! ' 'И <a href="https://2.com">ссылка2</a>.'
+        )
+
+    def test_no_links_with_chars(self):
+        """Тест текста без ссылок, но со спецсимволами (не должно быть экранировано)."""
+        # В режиме HTML эта функция ничего не экранирует (только ссылки),
+        # она должна вернуть исходный текст, иначе сломает b/i теги.
+        assert (
+            md_links_to_html("Просто текст (с точки. зрения)!") == "Просто текст (с точки. зрения)!"
+        )
+
+    def test_special_chars_in_label(self):
+        """Тест, что спецсимволы в тексте ссылки (label) не экранируются."""
+        # Экранирование должен выполнять html.escape внутри самой функции
+        out = md_links_to_html("Это [тест* c точкой.](https://site.com)")
+        assert out == 'Это <a href="https://site.com">тест* c точкой.</a>'
+
+    def test_special_chars_in_url_escaping(self):
+        """Тест, что спецсимволы в URL (например, &) экранируются для атрибута href."""
+        # & должен стать &amp; (за это отвечает html.escape в функции md_links_to_html)
+        url = "https://site.com/a?b=1&c=2"
+        expected_url = "https://site.com/a?b=1&amp;c=2"
+        out = md_links_to_html(f"Ссылка: [тест]({url})")
+        assert out == f'Ссылка: <a href="{expected_url}">тест</a>'
+
+    def test_text_link_text(self):
+        """Тест полного цикла: текст, ссылка, текст."""
+        text = "Начало. [Ссылка](https://url.com)! Конец."
+        out = md_links_to_html(text)
+        assert out == 'Начало. <a href="https://url.com">Ссылка</a>! Конец.'
+
+    def test_empty_string(self):
+        """Тест на пустую строку."""
+        assert md_links_to_html("") == ""

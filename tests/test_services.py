@@ -1,8 +1,10 @@
 """Тесты для сервисов"""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from aiogram.exceptions import TelegramForbiddenError, TelegramRetryAfter
+from aiogram.types import Message
 
 from src.models.user import User, UserRole
 from src.services.broadcast import BroadcastService, BroadcastStats
@@ -193,7 +195,8 @@ class TestBroadcastService:
             service.repository = mock_repository
             return service
 
-    async def test_broadcast_message_success(self, service, mock_repository):
+    @patch("src.services.broadcast.send_message")
+    async def test_broadcast_message_success(self, mock_send_message, service, mock_repository):
         """Тест успешной рассылки"""
         mock_users = [
             User(user_id=1, mailing=True),
@@ -201,8 +204,11 @@ class TestBroadcastService:
         ]
         mock_repository.get_subscribers = AsyncMock(return_value=mock_users)
 
-        mock_bot = AsyncMock()
-        mock_bot.send_message = AsyncMock()
+        # Имитируем успешный возврат для каждого вызова
+        successful_message_mock = MagicMock(spec=Message)
+        mock_send_message.return_value = successful_message_mock
+
+        mock_bot = MagicMock()
 
         stats = await service.broadcast_message(mock_bot, "Test message", delay=0)
 
@@ -211,12 +217,18 @@ class TestBroadcastService:
         assert stats.blocked == 0
         assert stats.failed == 0
 
-        assert mock_bot.send_message.call_count == 2
+        # Проверяем, что send_message был вызван дважды
+        assert mock_send_message.call_count == 2
 
-    async def test_broadcast_message_with_blocked(self, service, mock_repository):
+        # Проверяем, что вызовы были для разных пользователей
+        mock_send_message.assert_any_call(mock_bot, "Test message", chat_id=1)
+        mock_send_message.assert_any_call(mock_bot, "Test message", chat_id=2)
+
+    @patch("src.services.broadcast.send_message")
+    async def test_broadcast_message_with_blocked(
+        self, mock_send_message, service, mock_repository
+    ):
         """Тест рассылки с заблокированными пользователями"""
-        from aiogram.exceptions import TelegramForbiddenError
-
         mock_users = [
             User(user_id=1, mailing=True),
             User(user_id=2, mailing=True),
@@ -224,13 +236,17 @@ class TestBroadcastService:
         mock_repository.get_subscribers = AsyncMock(return_value=mock_users)
         mock_repository.update_mailing = AsyncMock()
 
-        mock_bot = AsyncMock()
-        mock_bot.send_message = AsyncMock(
-            side_effect=[
-                None,  # Успешно
-                TelegramForbiddenError(method="sendMessage", message="Forbidden"),  # Заблокирован
-            ]
-        )
+        # Настраиваем мок send_message:
+        successful_message_mock = MagicMock(spec=Message)
+
+        mock_send_message.side_effect = [
+            successful_message_mock,  # Успешно для пользователя 1
+            TelegramForbiddenError(
+                method="sendMessage", message="Forbidden"
+            ),  # Заблокирован для пользователя 2
+        ]
+
+        mock_bot = MagicMock()
 
         stats = await service.broadcast_message(mock_bot, "Test", delay=0)
 
@@ -242,26 +258,50 @@ class TestBroadcastService:
         # Проверяем что пользователь был отписан
         mock_repository.update_mailing.assert_called_once_with(2, False)
 
-    async def test_broadcast_message_with_rate_limit(self, service, mock_repository):
-        """Тест рассылки с rate limit"""
-        from aiogram.exceptions import TelegramRetryAfter
+        # Проверяем, что send_message вызывался дважды
+        assert mock_send_message.call_count == 2
 
-        mock_users = [User(user_id=1, mailing=True)]
+    @patch("src.services.broadcast.send_message")
+    async def test_broadcast_message_with_rate_limit(
+        self, mock_send_message, service, mock_repository
+    ):
+        """Тест рассылки с рейт лимитом"""
+        mock_users = [
+            # Мы тестируем цикл только для одного пользователя
+            User(user_id=12345, mailing=True)
+        ]
         mock_repository.get_subscribers = AsyncMock(return_value=mock_users)
 
-        mock_bot = AsyncMock()
-        mock_bot.send_message = AsyncMock(
-            side_effect=[
-                TelegramRetryAfter(method="sendMessage", message="Rate limit", retry_after=1),
-                None,  # Успешная повторная попытка
-            ]
-        )
+        mock_bot = MagicMock()
+
+        # Мок успешного сообщения для возврата после RetryAfter
+        successful_message_mock = MagicMock(spec=Message)
+
+        mock_send_message.side_effect = [
+            TelegramRetryAfter(method="sendMessage", message="Rate limit", retry_after=1),
+            successful_message_mock,
+        ]
 
         with patch("src.services.broadcast.asyncio.sleep", new=AsyncMock()):
-            stats = await service.broadcast_message(mock_bot, "Test", delay=0)
+            stats = await service.broadcast_message(mock_bot, "Test message", delay=0)
 
+        # Проверяем, что статистика верна
+        assert stats.total == 1
         assert stats.success == 1
-        assert mock_bot.send_message.call_count == 2
+        assert stats.failed == 0
+        assert stats.blocked == 0
+
+        assert mock_send_message.call_count == 2
+
+        # Проверяем, что первый вызов был с правильными аргументами
+        mock_send_message.call_args_list[0].assert_called_with(
+            mock_bot, "Test message", chat_id=12345
+        )
+
+        # Проверяем, что второй вызов был с правильными аргументами
+        mock_send_message.call_args_list[1].assert_called_with(
+            mock_bot, "Test message", chat_id=12345
+        )
 
     async def test_broadcast_message_with_bad_request(self, service, mock_repository):
         """Тест рассылки с некорректным запросом"""
