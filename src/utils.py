@@ -36,6 +36,30 @@ SHEET_MAPPING = {
 }
 
 
+def format_text(text: str) -> str:
+    """
+    Форматирует текст: обрабатывает Markdown-ссылки и очищает лишние пробелы.
+
+    ВАЖНО: Эта функция применяется ТОЛЬКО при загрузке данных из Google Sheets.
+    Для форматирования текста в runtime используйте обёртки send_message и т.д.
+
+    Args:
+        text: Исходный текст
+
+    Returns:
+        str: Отформатированный текст
+    """
+    if not text:
+        return text
+
+    text = md_links_to_html(text)
+
+    # Убираем лишние пробелы и переносы строк
+    text = re.sub(r"\n\s*\n\s*\n+", "\n\n", text)  # Множественные переносы в двойной
+
+    return text.strip()
+
+
 def get_creds():
     """Получить credentials для Google Sheets"""
     return Credentials.from_service_account_file(
@@ -94,7 +118,11 @@ async def load_sheet_data(sheet_name: str) -> list[dict]:
                 elif value == "NULL":
                     processed_record[key] = None
                 else:
-                    processed_record[key] = value
+                    # Применяем форматирование ТОЛЬКО к текстовым полям при загрузке
+                    if isinstance(value, str) and key in ["description", "answer", "text"]:
+                        processed_record[key] = format_text(value)
+                    else:
+                        processed_record[key] = value
 
             data.append(processed_record)
 
@@ -131,7 +159,8 @@ async def get_sheet_description(sheet_name: str) -> Optional[str]:
         # Ищем строку с id=0
         for record in records:
             if str(record.get("id", "")) == "0":
-                return record.get("description", "")
+                description = record.get("description", "")
+                return format_text(description) if description else ""
 
         return None
 
@@ -200,7 +229,34 @@ async def update_from_notification(notification_data: dict) -> bool:
         return False
 
 
-MDV2_CHARS_TO_ESCAPE = r"([_\*\[\]\(\)~`>#+\-=|{}\.!])"
+def format_faq_text() -> str:
+    """
+    Форматировать FAQ в читаемый текст
+
+    Returns:
+        str: Отформатированный текст FAQ
+    """
+    faq_items = get_faq_items()
+
+    if not faq_items:
+        return (
+            "<b>❓ Часто задаваемые вопросы</b>\n\n"
+            "Информация пока не загружена. Попробуйте позже."
+        )
+
+    text = "<b>❓ Часто задаваемые вопросы</b>\n\n"
+
+    for item in faq_items:
+        question = item.get("question", "")
+        answer = item.get("answer", "")
+
+        if question and answer:
+            text += f"<b>Q: {question}</b>\n"
+            text += f"A: {answer}\n\n"
+
+    text += "💬 <i>Есть ещё вопросы? Напишите нам!</i>"
+
+    return text
 
 
 def md_links_to_html(text: str) -> str:
@@ -221,7 +277,7 @@ def md_links_to_html(text: str) -> str:
 
     def replacer(match):
         label = match.group(1)  # Текст ссылки (оставляем "как есть")
-        url = match.group(2)  # URL ссылки
+        url = match.group(2).strip()  # URL ссылки
 
         # Экранируем URL для безопасной вставки в атрибут href=""
         # (Например, & превратится в &amp;)
@@ -304,33 +360,3 @@ def get_faq_items() -> list[dict]:
         list[dict]: Список с полями: id, question, answer
     """
     return FAQ_ITEMS
-
-
-def format_faq_text() -> str:
-    """
-    Форматировать FAQ в читаемый текст
-
-    Returns:
-        str: Отформатированный текст FAQ
-    """
-    faq_items = get_faq_items()
-
-    if not faq_items:
-        return (
-            "<b>❓ Часто задаваемые вопросы</b>\n\n"
-            "Информация пока не загружена. Попробуйте позже."
-        )
-
-    text = "<b>❓ Часто задаваемые вопросы</b>\n\n"
-
-    for item in faq_items:
-        question = item.get("question", "")
-        answer = item.get("answer", "")
-
-        if question and answer:
-            text += f"<b>Q: {question}</b>\n"
-            text += f"A: {answer}\n\n"
-
-    text += "💬 <i>Есть ещё вопросы? Напишите нам!</i>"
-
-    return text
