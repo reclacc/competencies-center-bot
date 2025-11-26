@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError, TelegramRetryAfter
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.middlewares.message_formatter import send_message
 from src.repositories.user import UserRepository
 
 if TYPE_CHECKING:
@@ -69,7 +70,7 @@ class BroadcastService:
 
         for user in subscribers:
             try:
-                await bot.send_message(user.user_id, text)
+                await send_message(bot, text, chat_id=user.user_id)
                 stats.success += 1
                 await asyncio.sleep(delay)
 
@@ -87,7 +88,7 @@ class BroadcastService:
                 await asyncio.sleep(e.retry_after)
 
                 try:
-                    await bot.send_message(user.user_id, text)
+                    await send_message(bot, text, chat_id=user.user_id)
                     stats.success += 1
                 except Exception as retry_error:
                     stats.failed += 1

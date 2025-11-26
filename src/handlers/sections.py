@@ -7,6 +7,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
 from src.keyboards.sections_keyboard import get_item_detail_keyboard, get_items_keyboard
+from src.middlewares.message_formatter import answer_callback, edit_message, send_message
 from src.utils import (
     get_area_by_id,
     get_areas,
@@ -48,7 +49,7 @@ async def show_target_groups_list(message: types.Message, state: FSMContext):
 
     if not target_groups:
         text = "<b>👥 Целевые группы</b>\n\n" "Информация пока не загружена. Попробуйте позже."
-        await message.answer(text)
+        await send_message(message, text)
         return
 
     text = (
@@ -56,8 +57,9 @@ async def show_target_groups_list(message: types.Message, state: FSMContext):
         f"Найдено записей: <b>{len(target_groups)}</b>\n"
         "Выберите целевую группу для подробной информации:"
     )
-
-    await message.answer(text, reply_markup=get_items_keyboard(target_groups, "target_group"))
+    await send_message(
+        message, text, reply_markup=get_items_keyboard(target_groups, "target_group")
+    )
 
 
 @router.callback_query(F.data.startswith("target_group:"))
@@ -73,7 +75,7 @@ async def show_target_group_detail(callback: types.CallbackQuery, state: FSMCont
     item = next((tg for tg in target_groups if str(tg.get("id")) == str(item_id)), None)
 
     if not item:
-        await callback.answer("Целевая группа не найдена", show_alert=True)
+        await answer_callback(callback, "Целевая группа не найдена", show_alert=True)
         return
 
     text = f"<b>{item.get('name', 'Без названия')}</b>\n\n"
@@ -84,12 +86,13 @@ async def show_target_group_detail(callback: types.CallbackQuery, state: FSMCont
 
     text += "<i>Выберите действие ниже:</i>"
 
-    await callback.message.edit_text(
+    await edit_message(
+        callback,
         text,
         reply_markup=get_item_detail_keyboard("target_groups", item_id),
     )
 
-    await callback.answer()
+    await answer_callback(callback)
 
 
 @router.callback_query(F.data == "back_to_target_groups_list")
@@ -107,10 +110,10 @@ async def back_to_target_groups_list(callback: types.CallbackQuery, state: FSMCo
         "Выберите целевую группу для подробной информации:"
     )
 
-    await callback.message.edit_text(
-        text, reply_markup=get_items_keyboard(target_groups, "target_group")
+    await edit_message(
+        callback, text, reply_markup=get_items_keyboard(target_groups, "target_group")
     )
-    await callback.answer()
+    await answer_callback(callback)
 
 
 @router.message(lambda msg: msg.text == "Мероприятия")
@@ -124,7 +127,7 @@ async def show_events_list(message: types.Message, state: FSMContext):
 
     if not events:
         text = "<b>🎯 Мероприятия</b>\n\n" "Информация пока не загружена. Попробуйте позже."
-        await message.answer(text)
+        await send_message(message, text)
         return
 
     text = (
@@ -133,7 +136,7 @@ async def show_events_list(message: types.Message, state: FSMContext):
         "Выберите мероприятие для подробной информации:"
     )
 
-    await message.answer(text, reply_markup=get_items_keyboard(events, "event"))
+    await send_message(message, text, reply_markup=get_items_keyboard(events, "event"))
 
 
 @router.callback_query(F.data.startswith("event:"))
@@ -149,7 +152,7 @@ async def show_event_detail(callback: types.CallbackQuery, state: FSMContext):
     item = next((e for e in events if str(e.get("id")) == str(item_id)), None)
 
     if not item:
-        await callback.answer("Мероприятие не найдено", show_alert=True)
+        await answer_callback(callback, "Мероприятие не найдено", show_alert=True)
         return
 
     text = f"<b>{item.get('title', 'Без названия')}</b>\n\n"
@@ -160,12 +163,12 @@ async def show_event_detail(callback: types.CallbackQuery, state: FSMContext):
 
     text += "<i>Выберите действие ниже:</i>"
 
-    await callback.message.edit_text(
+    await edit_message(
+        callback,
         text,
         reply_markup=get_item_detail_keyboard("events", item_id),
     )
-
-    await callback.answer()
+    await answer_callback(callback)
 
 
 @router.callback_query(F.data == "back_to_events_list")
@@ -183,8 +186,8 @@ async def back_to_events_list(callback: types.CallbackQuery, state: FSMContext):
         "Выберите мероприятие для подробной информации:"
     )
 
-    await callback.message.edit_text(text, reply_markup=get_items_keyboard(events, "event"))
-    await callback.answer()
+    await edit_message(callback, text, reply_markup=get_items_keyboard(events, "event"))
+    await answer_callback(callback)
 
 
 @router.message(lambda msg: msg.text == "Партнёры")
@@ -198,7 +201,7 @@ async def show_partners_list(message: types.Message, state: FSMContext):
 
     if not partners:
         text = "<b>🤝 Партнёры</b>\n\n" "Информация пока не загружена. Попробуйте позже."
-        await message.answer(text)
+        await send_message(message, text)
         return
 
     text = (
@@ -207,7 +210,7 @@ async def show_partners_list(message: types.Message, state: FSMContext):
         "Выберите партнёра для подробной информации:"
     )
 
-    await message.answer(text, reply_markup=get_items_keyboard(partners, "partner"))
+    await send_message(message, text, reply_markup=get_items_keyboard(partners, "partner"))
 
 
 @router.callback_query(F.data.startswith("partner:"))
@@ -222,7 +225,7 @@ async def show_partner_detail(callback: types.CallbackQuery, state: FSMContext):
     item = get_partner_by_id(item_id)
 
     if not item:
-        await callback.answer("Партнёр не найден", show_alert=True)
+        await answer_callback(callback, "Партнёр не найден", show_alert=True)
         return
 
     text = f"<b>{item.get('name', 'Без названия')}</b>\n\n"
@@ -237,13 +240,14 @@ async def show_partner_detail(callback: types.CallbackQuery, state: FSMContext):
 
     text += "<i>Выберите действие ниже:</i>"
 
-    await callback.message.edit_text(
+    await edit_message(
+        callback,
         text,
         reply_markup=get_item_detail_keyboard("partners", item_id, link),
         disable_web_page_preview=True,
     )
 
-    await callback.answer()
+    await answer_callback(callback)
 
 
 @router.callback_query(F.data == "back_to_partners_list")
@@ -261,8 +265,8 @@ async def back_to_partners_list(callback: types.CallbackQuery, state: FSMContext
         "Выберите партнёра для подробной информации:"
     )
 
-    await callback.message.edit_text(text, reply_markup=get_items_keyboard(partners, "partner"))
-    await callback.answer()
+    await edit_message(callback, text, reply_markup=get_items_keyboard(partners, "partner"))
+    await answer_callback(callback)
 
 
 @router.message(lambda msg: msg.text == "Цифровые продукты")
@@ -276,7 +280,7 @@ async def show_digital_products_list(message: types.Message, state: FSMContext):
 
     if not products:
         text = "<b>💻 Цифровые продукты</b>\n\n" "Информация пока не загружена. Попробуйте позже."
-        await message.answer(text)
+        await send_message(message, text)
         return
 
     text = (
@@ -285,7 +289,7 @@ async def show_digital_products_list(message: types.Message, state: FSMContext):
         "Выберите продукт для подробной информации:"
     )
 
-    await message.answer(text, reply_markup=get_items_keyboard(products, "digital_product"))
+    await send_message(message, text, reply_markup=get_items_keyboard(products, "digital_product"))
 
 
 @router.callback_query(F.data.startswith("digital_product:"))
@@ -300,7 +304,7 @@ async def show_digital_product_detail(callback: types.CallbackQuery, state: FSMC
     item = get_digital_product_by_id(item_id)
 
     if not item:
-        await callback.answer("Цифровой продукт не найден", show_alert=True)
+        await answer_callback(callback, "Цифровой продукт не найден", show_alert=True)
         return
 
     text = f"<b>{item.get('name', 'Без названия')}</b>\n\n"
@@ -315,13 +319,14 @@ async def show_digital_product_detail(callback: types.CallbackQuery, state: FSMC
 
     text += "<i>Выберите действие ниже:</i>"
 
-    await callback.message.edit_text(
+    await edit_message(
+        callback,
         text,
         reply_markup=get_item_detail_keyboard("digital_products", item_id, link),
         disable_web_page_preview=True,
     )
 
-    await callback.answer()
+    await answer_callback(callback)
 
 
 @router.callback_query(F.data == "back_to_digital_products_list")
@@ -339,10 +344,8 @@ async def back_to_digital_products_list(callback: types.CallbackQuery, state: FS
         "Выберите продукт для подробной информации:"
     )
 
-    await callback.message.edit_text(
-        text, reply_markup=get_items_keyboard(products, "digital_product")
-    )
-    await callback.answer()
+    await edit_message(callback, text, reply_markup=get_items_keyboard(products, "digital_product"))
+    await answer_callback(callback)
 
 
 @router.message(lambda msg: msg.text == "Направления")
@@ -356,7 +359,7 @@ async def show_areas_list(message: types.Message, state: FSMContext):
 
     if not areas:
         text = "<b>📊 Направления</b>\n\n" "Информация пока не загружена. Попробуйте позже."
-        await message.answer(text)
+        await send_message(message, text)
         return
 
     text = (
@@ -365,7 +368,7 @@ async def show_areas_list(message: types.Message, state: FSMContext):
         "Выберите направление для подробной информации:"
     )
 
-    await message.answer(text, reply_markup=get_items_keyboard(areas, "area"))
+    await send_message(message, text, reply_markup=get_items_keyboard(areas, "area"))
 
 
 @router.callback_query(F.data.startswith("area:"))
@@ -380,7 +383,7 @@ async def show_area_detail(callback: types.CallbackQuery, state: FSMContext):
     item = get_area_by_id(item_id)
 
     if not item:
-        await callback.answer("Направление не найдено", show_alert=True)
+        await answer_callback(callback, "Направление не найдено", show_alert=True)
         return
 
     text = f"<b>{item.get('name', 'Без названия')}</b>\n\n"
@@ -391,12 +394,13 @@ async def show_area_detail(callback: types.CallbackQuery, state: FSMContext):
 
     text += "<i>Выберите действие ниже:</i>"
 
-    await callback.message.edit_text(
+    await edit_message(
+        callback,
         text,
         reply_markup=get_item_detail_keyboard("areas", item_id),
     )
 
-    await callback.answer()
+    await answer_callback(callback)
 
 
 @router.callback_query(F.data == "back_to_areas_list")
@@ -414,5 +418,5 @@ async def back_to_areas_list(callback: types.CallbackQuery, state: FSMContext):
         "Выберите направление для подробной информации:"
     )
 
-    await callback.message.edit_text(text, reply_markup=get_items_keyboard(areas, "area"))
-    await callback.answer()
+    await edit_message(callback, text, reply_markup=get_items_keyboard(areas, "area"))
+    await answer_callback(callback)

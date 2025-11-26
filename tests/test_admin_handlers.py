@@ -3,6 +3,7 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from aiogram.types import Message
 
 from src.handlers.admin.broadcast import broadcast_command, broadcast_stats_command
 from src.handlers.admin.user_management import demote_user, list_admins, promote_user
@@ -13,41 +14,66 @@ from src.models.user import User, UserRole
 class TestBroadcastHandlers:
     """Тесты для обработчиков рассылки"""
 
-    @patch("src.handlers.admin.broadcast.db_helper")
     @patch("src.handlers.admin.broadcast.BroadcastService")
+    @patch("src.handlers.admin.broadcast.db_helper")
+    @patch("src.handlers.admin.broadcast.send_message")
+    @patch("src.handlers.admin.broadcast.edit_message")
     async def test_broadcast_command_success(
-        self, mock_broadcast_service_class, mock_db_helper, message
+        self,
+        mock_edit_message,
+        mock_send_message,
+        mock_db_helper,
+        mock_broadcast_service_class,
+        message,
     ):
         """Тест успешной рассылки"""
-        # Настройка моков
+        # 1. Настройка моков для сессии
         mock_session = AsyncMock()
         mock_db_helper.session = MagicMock(return_value=mock_session)
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
 
-        mock_broadcast_service = AsyncMock()
+        # 2. Инициализация мока экземпляра сервиса
+        from src.services.broadcast import BroadcastService
+
+        mock_broadcast_service = AsyncMock(spec=BroadcastService)
         mock_broadcast_service_class.return_value = mock_broadcast_service
 
+        # 3. Настройка метода рассылки
         from src.services.broadcast import BroadcastStats
 
         stats = BroadcastStats(total=10, success=9, blocked=1, failed=0)
         mock_broadcast_service.broadcast_message = AsyncMock(return_value=stats)
 
+        # 4. Настройка моков для сообщения (для confirm_msg)
+        # Проверяем, что Message импортирован для 'spec'
+        confirm_msg_mock = MagicMock(spec=Message)  # Используем spec=Message
+        mock_send_message.return_value = confirm_msg_mock
+
+        # Настройка входного сообщения
         message.text = "/broadcast Тестовое сообщение"
-        message.answer = AsyncMock()
+        if not hasattr(message, "bot"):
+            message.bot = MagicMock()  # Добавляем мок бота, если его нет в фикстуре 'message'
 
-        confirm_msg = AsyncMock()
-        confirm_msg.edit_text = AsyncMock()
-        message.answer.return_value = confirm_msg
-
+        # Вызов
         await broadcast_command(message, is_admin=True)
 
-        # Проверяем что было отправлено подтверждение
-        assert message.answer.call_count == 1
-        confirm_msg.edit_text.assert_called_once()
+        # Проверки
 
-        # Проверяем что рассылка была вызвана
-        mock_broadcast_service.broadcast_message.assert_called_once()
+        # 1. Проверяем, что send_message был вызван для отправки подтверждения
+        mock_send_message.assert_called_once()
+
+        # 2. Проверяем, что рассылка была вызвана с нужными аргументами
+        mock_broadcast_service.broadcast_message.assert_called_once_with(
+            bot=message.bot, text="Тестовое сообщение"
+        )
+
+        # 3. Проверяем, что edit_message был вызван для завершения
+        mock_edit_message.assert_called_once_with(
+            confirm_msg_mock,
+            f"✅ Рассылка завершена!\n\n{stats}\n\n"
+            f"<i>Заблокированные пользователи автоматически отписаны от рассылки.</i>",
+        )
 
     @patch("src.handlers.admin.broadcast.db_helper")
     async def test_broadcast_command_no_text(self, mock_db_helper, message):

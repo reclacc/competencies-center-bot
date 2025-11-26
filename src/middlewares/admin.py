@@ -7,6 +7,7 @@ from aiogram import BaseMiddleware
 from aiogram.types import Message, TelegramObject
 
 from src.core.database import db_helper
+from src.middlewares.message_formatter import send_message
 from src.services.user_service import UserService
 
 logger = logging.getLogger(__name__)
@@ -36,7 +37,7 @@ class AdminMiddleware(BaseMiddleware):
 
         if not is_admin:
             logger.warning(f"Пользователь {user_id} попытался использовать админ-команду без прав")
-            await event.answer("❌ У вас нет прав для использования этой команды.")
+            await send_message(event, "❌ У вас нет прав для использования этой команды.")
             return
 
         return await handler(event, data)

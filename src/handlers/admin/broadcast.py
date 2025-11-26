@@ -7,6 +7,7 @@ from aiogram.filters import Command
 
 from src.core.database import db_helper
 from src.middlewares.admin import AdminMiddleware
+from src.middlewares.message_formatter import edit_message, send_message
 from src.services.broadcast import BroadcastService
 
 logger = logging.getLogger(__name__)
@@ -25,22 +26,24 @@ async def broadcast_command(message: types.Message, is_admin: bool):
     parts = message.text.split(maxsplit=1)
 
     if len(parts) < 2:
-        await message.answer(
+        await send_message(
+            message,
             "❌ Укажите текст для рассылки!\n\n"
             "<b>Использование:</b>\n"
             "<code>/broadcast текст сообщения</code>\n\n"
             "<b>Пример:</b>\n"
-            "<code>/broadcast Приветствуем! Новый курс доступен.</code>"
+            "<code>/broadcast Приветствуем! Новый курс доступен.</code>",
         )
         return
 
     text = parts[1].strip()
 
     # Подтверждение рассылки
-    confirm_msg = await message.answer(
+    confirm_msg = await send_message(
+        message,
         f"📤 Начинаю рассылку...\n\n"
         f"<b>Текст сообщения:</b>\n{text}\n\n"
-        f"⏳ Пожалуйста, подождите..."
+        f"⏳ Пожалуйста, подождите...",
     )
 
     logger.info(f"Администратор {message.from_user.id} запустил рассылку")
@@ -49,9 +52,10 @@ async def broadcast_command(message: types.Message, is_admin: bool):
         broadcast_service = BroadcastService(session)
         stats = await broadcast_service.broadcast_message(bot=message.bot, text=text)
 
-    await confirm_msg.edit_text(
+    await edit_message(
+        confirm_msg,
         f"✅ Рассылка завершена!\n\n{stats}\n\n"
-        f"<i>Заблокированные пользователи автоматически отписаны от рассылки.</i>"
+        f"<i>Заблокированные пользователи автоматически отписаны от рассылки.</i>",
     )
 
     logger.info(f"Администратор {message.from_user.id} завершил рассылку")
@@ -65,8 +69,9 @@ async def broadcast_stats_command(message: types.Message, is_admin: bool):
         subscribers = await broadcast_service.repository.get_subscribers()
         total_count = await broadcast_service.repository.count_subscribers()
 
-    await message.answer(
+    await send_message(
+        message,
         f"📊 <b>Статистика рассылки</b>\n\n"
         f"├─Всего подписчиков: <b>{total_count}</b>\n"
-        f"└─Активных пользователей: <b>{len(subscribers)}</b>"
+        f"└─Активных пользователей: <b>{len(subscribers)}</b>",
     )
