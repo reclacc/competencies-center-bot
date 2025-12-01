@@ -1,154 +1,93 @@
+"""Обработчики для курсов (с категориями)"""
 import logging
 
-from aiogram import F, Router, types
+from aiogram import Router, F, types
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
 
-from src.keyboards.courses_keyboard import (
-    get_course_categories_keyboard,
-    get_course_detail_keyboard,
-    get_courses_keyboard,
-)
-from src.middlewares.message_formatter import answer_callback, edit_message, send_message
-from src.utils import get_categories, get_course_by_id, get_courses_by_category
+from src.handlers.common.base_section import GenericSectionHandler, SectionConfig, SectionStates
+from src.keyboards.sections import get_items_keyboard
+from src.middlewares.message_formatter import answer_callback
+from src.utils import get_courses, get_categories, find_item_by_id, filter_items_by_field
 
 logger = logging.getLogger(__name__)
 router = Router()
 
+class CoursesHandler(GenericSectionHandler):
+    """
+    Расширенный обработчик для Курсов.
 
-class CoursesStates(StatesGroup):
-    """Состояния для навигации по курсам"""
+    Добавляет слой категорий перед списком курсов.
+    """
 
-    choosing_category = State()
-    viewing_courses = State()
-    viewing_course_detail = State()
+    def register_handlers(self):
+        # 1. Вход: КАТЕГОРИИ, а не список курсов
+        self.router.message(F.text == self.config.button_text)(self.show_categories)
 
+        # 2. Выбор категории
+        self.router.callback_query(
+            F.data.startswith("course_category:")
+        )(self.on_category_selected)
 
-@router.message(lambda msg: msg.text == "Курсы")
-async def show_courses_catalog(message: types.Message, state: FSMContext):
-    """Показать каталог курсов - точка входа"""
-    logger.info(f"Пользователь {message.from_user.id} открыл каталог курсов")
+        # 3. Кнопка "Назад к категориям" (из списка курсов)
+        self.router.callback_query(
+            F.data == "back_to_course_categories"
+        )(self.back_to_categories)
 
-    await state.set_state(CoursesStates.choosing_category)
+        # Регистрируем стандартные хендлеры (детали, клик по курсу)
+        # Важный момент: show_list будет вызван программно, а не через роутер по кнопке меню
+        super().register_handlers()
 
-    categories = get_categories()
+    async def show_categories(self, event: types.Message | types.CallbackQuery, state: FSMContext):
+        """Показ списка категорий"""
+        await state.set_state(SectionStates.browsing_categories)
 
-    if not categories:
-        text = (
-            "<b>📚 Курсы</b>\n\n"
-            "К сожалению, категории курсов пока не загружены. "
-            "Попробуйте позже или обратитесь к администратору."
-        )
-        await send_message(message, text)
-        return
+        categories = get_categories()
+        text = "<b>📚 Каталог курсов</b>\n\nВыберите категорию:"
 
-    text = "<b>📚 Каталог курсов</b>\n\nВыберите категорию для просмотра доступных курсов:"
+        kb = get_items_keyboard(categories, "course_category")
+        await self._send_or_edit(event, text, kb)
 
-    await send_message(message, text, reply_markup=get_course_categories_keyboard())
+    async def on_category_selected(self, callback: types.CallbackQuery, state: FSMContext):
+        """Обработка выбора категории"""
+        category_id = callback.data.split(":")[1]
 
+        # Сохраняем выбранную категорию в контекст
+        await state.update_data(current_category=category_id)
 
-@router.callback_query(F.data.startswith("course_category:"))
-async def show_courses_in_category(callback: types.CallbackQuery, state: FSMContext):
-    """Показать курсы в выбранной категории"""
-    category_id = callback.data.split(":")[1]
+        # Вызываем метод показа списка (он возьмёт категорию из state)
+        await self.show_list(callback, state)
 
-    logger.info(f"Пользователь {callback.from_user.id} выбрал категорию курсов {category_id}")
+    async def get_items(self, state: FSMContext) -> list[dict]:
+        """Переопределяем получение элементов: фильтруем по категории"""
+        data = await state.get_data()
+        category_id = data.get("current_category")
 
-    await state.set_state(CoursesStates.viewing_courses)
-    await state.update_data(current_category=category_id)
+        all_courses = self.config.data_getter()
 
-    categories = get_categories()
-    category = next((cat for cat in categories if str(cat.get("id")) == str(category_id)), None)
-    category_name = category.get("name", "Неизвестная") if category else "Неизвестная"
+        if not category_id:
+            return all_courses
 
-    courses = get_courses_by_category(category_id)
+        return filter_items_by_field(all_courses, "category_id", category_id)
 
-    if not courses:
-        text = f"<b>{category_name}</b>\n\nВ этой категории пока нет курсов."
-        await edit_message(callback, text, reply_markup=get_course_categories_keyboard())
-    else:
-        text = (
-            f"<b>{category_name}</b>\n\n"
-            f"Найдено курсов: <b>{len(courses)}</b>\n"
-            "Выберите курс для подробной информации:"
-        )
-        await edit_message(callback, text, reply_markup=get_courses_keyboard(courses, category_id))
+    async def get_list_back_callback(self, state: FSMContext) -> str | None:
+        """В списке курсов кнопка 'Назад' ведет к категориям"""
+        return "back_to_course_categories"
 
-    await answer_callback(callback)
+    async def get_home_callback(self, state: FSMContext) -> str | None:
+        """В детализации кнопка 'Домой' ведет к категориям"""
+        return "back_to_course_categories"
 
-
-@router.callback_query(F.data.startswith("course:"))
-async def show_course_detail(callback: types.CallbackQuery, state: FSMContext):
-    """Показать детальную информацию о курсе"""
-    course_id = callback.data.split(":")[1]
-
-    logger.info(f"Пользователь {callback.from_user.id} просматривает курс {course_id}")
-
-    await state.set_state(CoursesStates.viewing_course_detail)
-
-    course = get_course_by_id(course_id)
-
-    if not course:
-        await answer_callback(callback, "Курс не найден", show_alert=True)
-        return
-
-    text = f"<b>{course.get('name', 'Без названия')}</b>\n\n"
-
-    description = course.get("description")
-    if description:
-        text += f"{description}\n\n"
-
-    link = course.get("link")
-    if link:
-        text += f"[Перейти к курсу]({link})\n\n"
-
-    text += "<i>Выберите действие ниже:</i>"
-
-    # Получаем текущую категорию из state
-    data = await state.get_data()
-    current_category = data.get("current_category")
-
-    await edit_message(
-        callback, text, reply_markup=get_course_detail_keyboard(course_id, current_category, link)
-    )
-
-    await answer_callback(callback)
+    async def back_to_categories(self, callback: types.CallbackQuery, state: FSMContext):
+        """Возврат в меню категорий"""
+        await self.show_categories(callback, state)
 
 
-@router.callback_query(F.data == "back_to_course_categories")
-async def back_to_course_categories(callback: types.CallbackQuery, state: FSMContext):
-    """Вернуться к выбору категорий курсов"""
-    logger.info(f"Пользователь {callback.from_user.id} вернулся к категориям курсов")
+# Инициализация
+courses_config = SectionConfig(
+    section_code="course",
+    button_text="Курсы",
+    title="📚 Курсы",
+    data_getter=get_courses
+)
 
-    await state.set_state(CoursesStates.choosing_category)
-
-    text = "<b>📚 Каталог курсов</b>\n\nВыберите категорию для просмотра доступных курсов:"
-
-    await edit_message(callback, text, reply_markup=get_course_categories_keyboard())
-    await answer_callback(callback)
-
-
-@router.callback_query(F.data.startswith("back_to_courses:"))
-async def back_to_courses(callback: types.CallbackQuery, state: FSMContext):
-    """Вернуться к списку курсов в категории"""
-    category_id = callback.data.split(":")[1]
-
-    logger.info(f"Пользователь {callback.from_user.id} вернулся к курсам категории {category_id}")
-
-    await state.set_state(CoursesStates.viewing_courses)
-    await state.update_data(current_category=category_id)
-
-    categories = get_categories()
-    category = next((cat for cat in categories if str(cat.get("id")) == str(category_id)), None)
-    category_name = category.get("name", "Неизвестная") if category else "Неизвестная"
-
-    courses = get_courses_by_category(category_id)
-
-    text = (
-        f"<b>{category_name}</b>\n\n"
-        f"Найдено курсов: <b>{len(courses)}</b>\n"
-        "Выберите курс для подробной информации:"
-    )
-
-    await edit_message(callback, text, reply_markup=get_courses_keyboard(courses, category_id))
-    await answer_callback(callback)
+CoursesHandler(router, courses_config)
