@@ -6,6 +6,8 @@ import pytest
 from aiogram.types import Message, Update, User
 
 from src.handlers import start
+from src.handlers.common.base_section import GenericSectionHandler
+from src.handlers.sections import SECTION_CONFIGS
 from src.handlers.start import faq_handler, start_handler
 
 
@@ -170,13 +172,6 @@ class TestSectionsIntegrationFlow:
 
     async def test_sections_not_crash_on_empty_data(self, message):
         """Тест что разделы не падают на пустых данных"""
-        from src.handlers.sections import (
-            show_areas_list,
-            show_digital_products_list,
-            show_events_list,
-            show_partners_list,
-            show_target_groups_list,
-        )
         from src.utils import AREAS, DIGITAL_PRODUCTS, EVENTS, PARTNERS, TARGET_GROUPS
 
         # Очищаем данные
@@ -186,6 +181,7 @@ class TestSectionsIntegrationFlow:
         DIGITAL_PRODUCTS.clear()
         AREAS.clear()
 
+        from aiogram import Router
         from aiogram.fsm.context import FSMContext
 
         message.answer = AsyncMock()
@@ -193,19 +189,15 @@ class TestSectionsIntegrationFlow:
         mock_state = AsyncMock(spec=FSMContext)
         mock_state.set_state = AsyncMock()
 
-        handlers = [
-            (show_target_groups_list, "Целевые группы"),
-            (show_events_list, "Мероприятия"),
-            (show_partners_list, "Партнёры"),
-            (show_digital_products_list, "Цифровые продукты"),
-            (show_areas_list, "Направления"),
-        ]
+        router = Router()
 
-        for handler, text in handlers:
-            message.text = text
+        for config in SECTION_CONFIGS:
+            handler = GenericSectionHandler(router, config)
+
+            message.text = config.button_text
             message.answer.reset_mock()
 
-            await handler(message, mock_state)
+            await handler.show_list(message, mock_state)
 
             # Проверяем что вызов не упал и вернул сообщение
             message.answer.assert_called_once()
