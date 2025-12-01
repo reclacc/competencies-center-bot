@@ -6,9 +6,9 @@ import pytest
 from aiogram.types import Message, Update, User
 
 from src.handlers import start
-from src.handlers.start import faq_handler, start_handler
 from src.handlers.common.base_section import GenericSectionHandler
 from src.handlers.sections import SECTION_CONFIGS
+from src.handlers.start import faq_handler, start_handler
 
 
 @pytest.mark.integration
