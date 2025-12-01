@@ -5,16 +5,14 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from src.utils import (
-    get_area_by_id,
+    filter_items_by_field,
+    find_item_by_id,
     get_areas,
     get_categories,
-    get_course_by_id,
     get_courses,
-    get_courses_by_category,
-    get_digital_product_by_id,
     get_digital_products,
     get_events,
-    get_partner_by_id,
+    get_faq_items,
     get_partners,
     get_target_groups,
     load_all_data,
@@ -60,25 +58,6 @@ class TestDataAccessFunctions:
         result = get_partners()
         assert len(result) == 1
 
-    def test_get_partner_by_id(self):
-        """Тест получения партнёра по ID"""
-        from src.utils import PARTNERS
-
-        PARTNERS.clear()
-        PARTNERS.extend(
-            [
-                {"id": "1", "name": "Партнёр 1"},
-                {"id": "2", "name": "Партнёр 2"},
-            ]
-        )
-
-        result = get_partner_by_id("1")
-        assert result is not None
-        assert result["name"] == "Партнёр 1"
-
-        result = get_partner_by_id("999")
-        assert result is None
-
     def test_get_digital_products(self):
         """Тест получения цифровых продуктов"""
         from src.utils import DIGITAL_PRODUCTS
@@ -88,25 +67,6 @@ class TestDataAccessFunctions:
 
         result = get_digital_products()
         assert len(result) == 1
-
-    def test_get_digital_product_by_id(self):
-        """Тест получения продукта по ID"""
-        from src.utils import DIGITAL_PRODUCTS
-
-        DIGITAL_PRODUCTS.clear()
-        DIGITAL_PRODUCTS.extend(
-            [
-                {"id": "1", "name": "Продукт 1"},
-                {"id": "2", "name": "Продукт 2"},
-            ]
-        )
-
-        result = get_digital_product_by_id("1")
-        assert result is not None
-        assert result["name"] == "Продукт 1"
-
-        result = get_digital_product_by_id("999")
-        assert result is None
 
     def test_get_areas(self):
         """Тест получения направлений"""
@@ -118,25 +78,6 @@ class TestDataAccessFunctions:
         result = get_areas()
         assert len(result) == 1
 
-    def test_get_area_by_id(self):
-        """Тест получения направления по ID"""
-        from src.utils import AREAS
-
-        AREAS.clear()
-        AREAS.extend(
-            [
-                {"id": "1", "name": "IT"},
-                {"id": "2", "name": "Маркетинг"},
-            ]
-        )
-
-        result = get_area_by_id("1")
-        assert result is not None
-        assert result["name"] == "IT"
-
-        result = get_area_by_id("999")
-        assert result is None
-
     def test_get_courses(self):
         """Тест получения курсов"""
         from src.utils import COURSES
@@ -146,25 +87,6 @@ class TestDataAccessFunctions:
 
         result = get_courses()
         assert len(result) == 1
-
-    def test_get_course_by_id(self):
-        """Тест получения курса по ID"""
-        from src.utils import COURSES
-
-        COURSES.clear()
-        COURSES.extend(
-            [
-                {"id": "1", "name": "Python"},
-                {"id": "2", "name": "JavaScript"},
-            ]
-        )
-
-        result = get_course_by_id("1")
-        assert result is not None
-        assert result["name"] == "Python"
-
-        result = get_course_by_id("999")
-        assert result is None
 
     def test_get_categories(self):
         """Тест получения категорий"""
@@ -176,27 +98,52 @@ class TestDataAccessFunctions:
         result = get_categories()
         assert len(result) == 1
 
-    def test_get_courses_by_category(self):
-        """Тест получения курсов по категории"""
-        from src.utils import COURSES
+    def test_get_faq_items(self):
+        """Тест получения списка FAQ"""
+        from src.utils import FAQ_ITEMS
 
-        COURSES.clear()
-        COURSES.extend(
-            [
-                {"id": "1", "name": "Python", "category_id": "1"},
-                {"id": "2", "name": "JavaScript", "category_id": "1"},
-                {"id": "3", "name": "Photoshop", "category_id": "2"},
-            ]
-        )
+        FAQ_ITEMS.clear()
+        FAQ_ITEMS.extend([{"id": "1", "question": "Q1", "answer": "A1"}])
 
-        result = get_courses_by_category("1")
-        assert len(result) == 2
-
-        result = get_courses_by_category("2")
+        result = get_faq_items()
         assert len(result) == 1
 
-        result = get_courses_by_category("999")
-        assert len(result) == 0
+    def test_find_item_by_id(self):
+        """Тест универсального поиска по ID"""
+        items = [
+            {"id": "1", "name": "Item 1"},
+            {"id": "2", "name": "Item 2"},
+        ]
+
+        # Найдено
+        result = find_item_by_id(items, "1")
+        assert result is not None
+        assert result["name"] == "Item 1"
+
+        # Не найдено
+        result = find_item_by_id(items, "999")
+        assert result is None
+
+        # Проверка приведения типов (строка/число)
+        items_int = [{"id": 1, "name": "Int ID"}]
+        result = find_item_by_id(items_int, "1")
+        assert result is not None
+
+    def test_filter_items_by_field(self):
+        """Тест универсальной фильтрации"""
+        items = [
+            {"id": "1", "cat": "A", "val": 1},
+            {"id": "2", "cat": "B", "val": 2},
+            {"id": "3", "cat": "A", "val": 3},
+        ]
+
+        results = filter_items_by_field(items, "cat", "A")
+        assert len(results) == 2
+        assert results[0]["id"] == "1"
+        assert results[1]["id"] == "3"
+
+        results_empty = filter_items_by_field(items, "cat", "C")
+        assert len(results_empty) == 0
 
 
 @pytest.mark.unit

@@ -1,16 +1,17 @@
 """Обработчики для курсов (с категориями)"""
+
 import logging
 
-from aiogram import Router, F, types
+from aiogram import F, Router, types
 from aiogram.fsm.context import FSMContext
 
 from src.handlers.common.base_section import GenericSectionHandler, SectionConfig, SectionStates
 from src.keyboards.sections import get_items_keyboard
-from src.middlewares.message_formatter import answer_callback
-from src.utils import get_courses, get_categories, find_item_by_id, filter_items_by_field
+from src.utils import filter_items_by_field, get_categories, get_courses
 
 logger = logging.getLogger(__name__)
 router = Router()
+
 
 class CoursesHandler(GenericSectionHandler):
     """
@@ -20,18 +21,15 @@ class CoursesHandler(GenericSectionHandler):
     """
 
     def register_handlers(self):
+        """Регистрация обработчиков курсов."""
         # 1. Вход: КАТЕГОРИИ, а не список курсов
         self.router.message(F.text == self.config.button_text)(self.show_categories)
 
         # 2. Выбор категории
-        self.router.callback_query(
-            F.data.startswith("course_category:")
-        )(self.on_category_selected)
+        self.router.callback_query(F.data.startswith("course_category:"))(self.on_category_selected)
 
         # 3. Кнопка "Назад к категориям" (из списка курсов)
-        self.router.callback_query(
-            F.data == "back_to_course_categories"
-        )(self.back_to_categories)
+        self.router.callback_query(F.data == "back_to_course_categories")(self.back_to_categories)
 
         # Регистрируем стандартные хендлеры (детали, клик по курсу)
         # Важный момент: show_list будет вызван программно, а не через роутер по кнопке меню
@@ -84,10 +82,7 @@ class CoursesHandler(GenericSectionHandler):
 
 # Инициализация
 courses_config = SectionConfig(
-    section_code="course",
-    button_text="Курсы",
-    title="📚 Курсы",
-    data_getter=get_courses
+    section_code="course", button_text="Курсы", title="📚 Курсы", data_getter=get_courses
 )
 
 CoursesHandler(router, courses_config)

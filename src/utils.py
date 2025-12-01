@@ -4,7 +4,6 @@ import asyncio
 import html
 import logging
 import re
-from typing import Any
 
 import gspread_asyncio
 from google.oauth2.service_account import Credentials
@@ -292,8 +291,16 @@ def md_links_to_html(text: str) -> str:
 # -------------Функции доступа к данным-------------
 
 
-def get_all_items(source_list: list[dict]) -> list[dict]:
-    """Получить весь список элементов"""
+def get_all_items(source_list: list[dict]) -> list[dict]:  # pragma: no cover
+    """
+    Получить весь список элементов
+
+    Эта функция добавлена для инкапсуляции (в будущем):
+    - можно будет сделать source_list.copy() для защиты от изменения в обработчиках
+    - можно будет вставить это в data_getter-ы и избавиться от всех get_x функций:
+        data_getter=lambda: get_all_items(TARGET_GROUPS)
+    В текущей реализации избыточна, поэтому не тестируется.
+    """
     return source_list
 
 
@@ -343,10 +350,5 @@ def get_categories() -> list[dict]:
 
 
 def get_faq_items() -> list[dict]:
-    """
-    Получить список FAQ вопросов-ответов
-
-    Returns:
-        list[dict]: Список с полями: id, question, answer
-    """
+    """Получить список FAQ вопросов-ответов"""
     return FAQ_ITEMS
