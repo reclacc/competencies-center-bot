@@ -4,7 +4,6 @@ import asyncio
 import html
 import logging
 import re
-from typing import Optional
 
 import gspread_asyncio
 from google.oauth2.service_account import Credentials
@@ -134,7 +133,7 @@ async def load_sheet_data(sheet_name: str) -> list[dict]:
         return []
 
 
-async def get_sheet_description(sheet_name: str) -> Optional[str]:
+async def get_sheet_description(sheet_name: str) -> str | None:
     """
     Получить описание раздела (строка с id=0)
 
@@ -142,7 +141,7 @@ async def get_sheet_description(sheet_name: str) -> Optional[str]:
         sheet_name: Название листа
 
     Returns:
-        Optional[str]: Описание раздела или None
+        str | None: Описание раздела или None
     """
     try:
         agcm = await get_agcm()
@@ -292,6 +291,29 @@ def md_links_to_html(text: str) -> str:
 # -------------Функции доступа к данным-------------
 
 
+def get_all_items(source_list: list[dict]) -> list[dict]:  # pragma: no cover
+    """
+    Получить весь список элементов
+
+    Эта функция добавлена для инкапсуляции (в будущем):
+    - можно будет сделать source_list.copy() для защиты от изменения в обработчиках
+    - можно будет вставить это в data_getter-ы и избавиться от всех get_x функций:
+        data_getter=lambda: get_all_items(TARGET_GROUPS)
+    В текущей реализации избыточна, поэтому не тестируется.
+    """
+    return source_list
+
+
+def find_item_by_id(items: list[dict], item_id: str) -> dict | None:
+    """Универсальный поиск элемента по ID"""
+    return next((item for item in items if str(item.get("id")) == str(item_id)), None)
+
+
+def filter_items_by_field(items: list[dict], field: str, value: str) -> list[dict]:
+    """Универсальная фильтрация списка"""
+    return [item for item in items if str(item.get(field)) == str(value)]
+
+
 def get_target_groups() -> list[dict]:
     """Получить список целевых групп"""
     return TARGET_GROUPS
@@ -307,19 +329,9 @@ def get_partners() -> list[dict]:
     return PARTNERS
 
 
-def get_partner_by_id(partner_id: str) -> Optional[dict]:
-    """Получить партнёра по ID"""
-    return next((p for p in PARTNERS if str(p.get("id")) == str(partner_id)), None)
-
-
 def get_digital_products() -> list[dict]:
     """Получить список цифровых продуктов"""
     return DIGITAL_PRODUCTS
-
-
-def get_digital_product_by_id(product_id: str) -> Optional[dict]:
-    """Получить цифровой продукт по ID"""
-    return next((p for p in DIGITAL_PRODUCTS if str(p.get("id")) == str(product_id)), None)
 
 
 def get_areas() -> list[dict]:
@@ -327,19 +339,9 @@ def get_areas() -> list[dict]:
     return AREAS
 
 
-def get_area_by_id(area_id: str) -> Optional[dict]:
-    """Получить направление по ID"""
-    return next((a for a in AREAS if str(a.get("id")) == str(area_id)), None)
-
-
 def get_courses() -> list[dict]:
     """Получить список всех курсов"""
     return COURSES
-
-
-def get_course_by_id(course_id: str) -> Optional[dict]:
-    """Получить курс по ID"""
-    return next((c for c in COURSES if str(c.get("id")) == str(course_id)), None)
 
 
 def get_categories() -> list[dict]:
@@ -347,16 +349,6 @@ def get_categories() -> list[dict]:
     return CATEGORIES
 
 
-def get_courses_by_category(category_id: str) -> list[dict]:
-    """Получить курсы по категории"""
-    return [c for c in COURSES if str(c.get("category_id")) == str(category_id)]
-
-
 def get_faq_items() -> list[dict]:
-    """
-    Получить список FAQ вопросов-ответов
-
-    Returns:
-        list[dict]: Список с полями: id, question, answer
-    """
+    """Получить список FAQ вопросов-ответов"""
     return FAQ_ITEMS
