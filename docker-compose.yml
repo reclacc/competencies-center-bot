@@ -1,0 +1,59 @@
+services:
+  # Сервис нашего бота
+  bot:
+    build: .
+    container_name: competencies_bot
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - bot_network
+    volumes:
+      # Пробрасываем credentials внутрь контейнера
+      - ./credentials.json:/app/credentials.json:ro
+
+  # База данных PostgreSQL
+  db:
+    image: postgres:15-alpine
+    container_name: competencies_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "${DB_PORT}:5432"  # Пробрасываем порт наружу (для удобства разработки)
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - bot_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Кэш Redis
+  redis:
+    image: redis:alpine
+    container_name: competencies_redis
+    restart: always
+    volumes:
+      - redis_data:/data
+    networks:
+      - bot_network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  bot_network:
+    driver: bridge
