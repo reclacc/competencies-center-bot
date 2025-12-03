@@ -1,10 +1,9 @@
 # Competencies Center Bot
 
-Telegram-бот для Центра компетенций с поддержкой polling и webhook режимов.
+Telegram-бот для Центра компетенций.
 
 ## Что уже сделано
 
-- Поддержка polling и webhook режимов
 - Конфигурация через `.env` файл
 - Современная структура с aiogram 3.x
 - Логирование событий
@@ -12,6 +11,8 @@ Telegram-бот для Центра компетенций с поддержко
 - Асинхронная работа с PostgreSQL
 - Система миграций Alembic
 - Ролевая система доступа (USER, ADMIN)
+- Кэширование данных с Redis
+- Поддержка Docker
 
 ## Структура проекта
 
@@ -294,22 +295,10 @@ docker-compose down
 - PostgreSQL 16+ (протестировано на 18.1)
 - Выполнены миграции БД (`alembic upgrade head`)
 
-### Режим Polling
-
-```bash
-python -m src.main
-```
-
-В `.env` должно быть:
-```env
-WEBHOOK_MODE=false
-```
-
-### Режим Webhook
+### Инструкция
 
 1. **Настройте .env**
 ```env
-WEBHOOK_MODE=true
 WEBHOOK_URL=https://your-webhook.url
 APP_PORT=8080
 ```
@@ -354,7 +343,6 @@ python -m src.main
 
 | Параметр | Описание | По умолчанию |
 |----------|---------|-------------|
-| `WEBHOOK_MODE` | Режим работы (true/false) | false |
 | `WEBHOOK_URL` | URL для вебхука | - |
 | `WEBHOOK_PATH` | Путь для вебхука Telegram | `/webhook` |
 | `GOOGLE_WEBHOOK_PATH` | Путь для вебхука Google Sheets | `/receive_edit` |
