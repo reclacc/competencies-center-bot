@@ -13,25 +13,11 @@ class TestStartupShutdown:
     """Тесты для startup/shutdown хендлеров"""
 
     @patch("src.main.load_all_data")
-    async def test_on_startup_polling_mode(self, mock_load_data, bot):
-        """Проверка startup в режиме polling"""
+    async def test_on_startup(self, mock_load_data, bot):
+        """Проверка startup"""
         mock_load_data.return_value = None
 
         with patch("src.main.settings") as mock_settings:
-            mock_settings.webhook_mode = False
-
-            await on_startup(bot)
-
-            bot.delete_webhook.assert_called_once_with(drop_pending_updates=True)
-            mock_load_data.assert_called_once()
-
-    @patch("src.main.load_all_data")
-    async def test_on_startup_webhook_mode(self, mock_load_data, bot):
-        """Проверка startup в режиме вебхука"""
-        mock_load_data.return_value = None
-
-        with patch("src.main.settings") as mock_settings:
-            mock_settings.webhook_mode = True
             mock_settings.webhook_url = "https://example.com"
             mock_settings.webhook_path = "/webhook"
 
@@ -43,48 +29,21 @@ class TestStartupShutdown:
             mock_load_data.assert_called_once()
 
     @patch("src.main.load_all_data")
-    async def test_on_startup_webhook_without_url(self, mock_load_data, bot):
-        """Проверка ошибки при отсутствии URL в режиме вебхука"""
+    async def test_on_startup_without_url(self, mock_load_data, bot):
+        """Проверка ошибки при отсутствии URL"""
         mock_load_data.return_value = None
 
         with patch("src.main.settings") as mock_settings:
-            mock_settings.webhook_mode = True
             mock_settings.webhook_url = None
 
             with pytest.raises(ValueError, match="WEBHOOK_URL должен быть установлен"):
                 await on_startup(bot)
 
-    @patch("src.main.load_all_data")
-    async def test_on_startup_load_data_error(self, mock_load_data, bot):
-        """Проверка обработки ошибки загрузки данных"""
-        mock_load_data.side_effect = Exception("Ошибка загрузки")
+    async def test_on_shutdown(self, bot):
+        """Проверка shutdown"""
+        await on_shutdown(bot)
 
-        with patch("src.main.settings") as mock_settings:
-            mock_settings.webhook_mode = False
-
-            # Не должно упасть, только залогировать ошибку
-            await on_startup(bot)
-
-            bot.delete_webhook.assert_called_once()
-
-    async def test_on_shutdown_webhook_mode(self, bot):
-        """Проверка shutdown в режиме вебхука"""
-        with patch("src.main.settings") as mock_settings:
-            mock_settings.webhook_mode = True
-
-            await on_shutdown(bot)
-
-            bot.delete_webhook.assert_called_once()
-
-    async def test_on_shutdown_polling_mode(self, bot):
-        """Проверка shutdown в режиме polling"""
-        with patch("src.main.settings") as mock_settings:
-            mock_settings.webhook_mode = False
-
-            await on_shutdown(bot)
-
-            # В polling режиме delete_webhook не вызывается при shutdown
-            bot.delete_webhook.assert_not_called()
+        bot.delete_webhook.assert_called_once()
 
 
 @pytest.mark.unit
@@ -217,9 +176,10 @@ class TestWebhookHandler:
 class TestLifespan:
     """Тесты для lifespan контекстного менеджера"""
 
+    @patch("src.main.RedisClient")
     @patch("src.main.db_helper.engine", new_callable=AsyncMock)
-    async def test_lifespan_db_connection_check(self, mock_engine):
-        """Проверка подключения к БД при запуске"""
+    async def test_lifespan_db_connection_check(self, mock_engine, mock_redis_cls):
+        """Проверка подключения к БД и Redis при запуске"""
         # ВАЖНО: connect() - синхронный метод, возвращающий асинхронный контекстный менеджер
         # AsyncMock по умолчанию делает методы асинхронными (не соответствует SQLAlchemy)
         # Поэтому connect обычным MagicMock!!!
@@ -232,14 +192,20 @@ class TestLifespan:
         mock_engine.connect.return_value.__aenter__.return_value = mock_connection
         mock_engine.connect.return_value.__aexit__.return_value = None
 
+        mock_redis_instance = AsyncMock()
+        mock_redis_cls.get_instance.return_value = mock_redis_instance
+        mock_redis_cls.close = AsyncMock()
+
         async with lifespan():
             # Проверяем, что connect вызван (как синхронный метод)
             mock_engine.connect.assert_called_once()
             # Проверяем, что SQL запрос отправлен
             mock_connection.execute.assert_called_once()
+            mock_redis_instance.ping.assert_called_once()
 
         # тк mock_engine был создан как AsyncMock, dispose остался асинхронным
         mock_engine.dispose.assert_called_once()
+        mock_redis_cls.close.assert_called_once()
 
     @patch("src.main.db_helper.engine", new_callable=AsyncMock)
     async def test_lifespan_db_connection_error(self, mock_engine):
@@ -266,28 +232,11 @@ class TestLogging:
 
     @patch("src.main.load_all_data")
     @patch("src.main.logger")
-    async def test_startup_logging_polling(self, mock_logger, mock_load_data, bot):
-        """Проверка логирования при запуске в режиме polling"""
+    async def test_startup_logging(self, mock_logger, mock_load_data, bot):
+        """Проверка логирования при запуске"""
         mock_load_data.return_value = None
 
         with patch("src.main.settings") as mock_settings:
-            mock_settings.webhook_mode = False
-
-            await on_startup(bot)
-
-            mock_logger.info.assert_called()
-            # Проверяем что было логирование polling режима
-            log_calls = [str(call) for call in mock_logger.info.call_args_list]
-            assert any("polling" in str(call).lower() for call in log_calls)
-
-    @patch("src.main.load_all_data")
-    @patch("src.main.logger")
-    async def test_startup_logging_webhook(self, mock_logger, mock_load_data, bot):
-        """Проверка логирования при запуске в режиме вебхука"""
-        mock_load_data.return_value = None
-
-        with patch("src.main.settings") as mock_settings:
-            mock_settings.webhook_mode = True
             mock_settings.webhook_url = "https://example.com"
             mock_settings.webhook_path = "/webhook"
             mock_settings.google_webhook_path = "/receive_edit"
@@ -308,14 +257,11 @@ class TestLogging:
         """Проверка логирования успешной загрузки данных"""
         mock_load_data.return_value = None
 
-        with patch("src.main.settings") as mock_settings:
-            mock_settings.webhook_mode = False
+        await on_startup(bot)
 
-            await on_startup(bot)
-
-            # Проверяем что успешная загрузка была залогирована
-            log_calls = [str(call) for call in mock_logger.info.call_args_list]
-            assert any("успешно" in str(call).lower() for call in log_calls)
+        # Проверяем что успешная загрузка была залогирована
+        log_calls = [str(call) for call in mock_logger.info.call_args_list]
+        assert any("успешно" in str(call).lower() for call in log_calls)
 
     @patch("src.main.load_all_data")
     @patch("src.main.logger")
@@ -323,10 +269,7 @@ class TestLogging:
         """Проверка логирования ошибок загрузки данных"""
         mock_load_data.side_effect = Exception("Ошибка загрузки")
 
-        with patch("src.main.settings") as mock_settings:
-            mock_settings.webhook_mode = False
+        await on_startup(bot)
 
-            await on_startup(bot)
-
-            # Проверяем что ошибка была залогирована
-            mock_logger.error.assert_called()
+        # Проверяем что ошибка была залогирована
+        mock_logger.error.assert_called()

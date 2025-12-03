@@ -1,7 +1,8 @@
-"""Утилиты и данные для работы с Google Sheets"""
+"""Утилиты и данные для работы с Google Sheets и Redis"""
 
 import asyncio
 import html
+import json
 import logging
 import re
 
@@ -9,29 +10,30 @@ import gspread_asyncio
 from google.oauth2.service_account import Credentials
 
 from src.core.config import settings
+from src.core.redis_client import get_redis
 
 logger = logging.getLogger(__name__)
 
-# Данные (пока без кэширования)
-CATEGORIES = []  # Категории курсов
-TARGET_GROUPS = []  # Целевые группы
-EVENTS = []  # Мероприятия
-PARTNERS = []  # Партнёры
-DIGITAL_PRODUCTS = []  # Цифровые продукты
-AREAS = []  # Направления
-COURSES = []  # Курсы
-FAQ_ITEMS = []  # FAQ вопросы-ответы
+# Ключи для Redis и маппинг на листы Google Sheets
+KEY_TARGET_GROUPS = "target_groups"
+KEY_EVENTS = "events"
+KEY_PARTNERS = "partners"
+KEY_DIGITAL_PRODUCTS = "digital_products"
+KEY_AREAS = "areas"
+KEY_COURSES = "courses"
+KEY_CATEGORIES = "categories"
+KEY_FAQ = "faq"
 
-# Маппинг листов на глобальные переменные
-SHEET_MAPPING = {
-    "target_groups": TARGET_GROUPS,
-    "events": EVENTS,
-    "partners": PARTNERS,
-    "digital_products": DIGITAL_PRODUCTS,
-    "areas": AREAS,
-    "courses": COURSES,
-    "categories": CATEGORIES,
-    "faq": FAQ_ITEMS,
+# Маппинг: Redis ключ -> Название листа в Google Sheets
+DATA_MAPPING = {
+    KEY_TARGET_GROUPS: "target_groups",
+    KEY_EVENTS: "events",
+    KEY_PARTNERS: "partners",
+    KEY_DIGITAL_PRODUCTS: "digital_products",
+    KEY_AREAS: "areas",
+    KEY_COURSES: "courses",
+    KEY_CATEGORIES: "categories",
+    KEY_FAQ: "faq",
 }
 
 
@@ -133,6 +135,72 @@ async def load_sheet_data(sheet_name: str) -> list[dict]:
         return []
 
 
+async def cache_data(key: str, data: list[dict]):
+    """Сохранить данные в Redis с TTL"""
+    try:
+        redis = get_redis()
+        await redis.set(key, json.dumps(data), ex=settings.cache_ttl)
+    except Exception as e:
+        logger.error(f"Ошибка записи в Redis для ключа {key}: {e}")
+
+
+async def get_cached_data(key: str) -> list[dict]:
+    """
+    Получить закэшированные данные.
+
+    1. Попробовать взять из Redis.
+    2. Если нет -> загрузить из Google Sheets.
+    3. Сохранить в Redis.
+    4. Вернуть данные.
+    """
+    sheet_name = DATA_MAPPING.get(key)
+    if not sheet_name:
+        logger.error(f"Неизвестный ключ данных: {key}")
+        return []
+
+    redis = get_redis()
+
+    # 1. Чтение из кэша
+    try:
+        cached_value = await redis.get(key)
+        if cached_value:
+            return json.loads(cached_value)
+    except Exception as e:
+        logger.error(f"Ошибка чтения из Redis ({key}): {e}")
+
+    # 2. Нет кэша -> Загрузка из источника
+    logger.info(f"Не сохранён кэш для {key}. Загрузка из гугл таблиц...")
+    data = await load_sheet_data(sheet_name)
+
+    # 3. Сохранение в кэш
+    if data:
+        await cache_data(key, data)
+
+    return data
+
+
+async def load_all_data():
+    """Принудительно обновить все данные в кэше (прогрев)"""
+    logger.info("Начинается обновление кэша данных...")
+    tasks = []
+
+    # Задачи для загрузки каждого листа
+    for key, sheet_name in DATA_MAPPING.items():
+        tasks.append(load_sheet_data(sheet_name))
+
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Сохраняем результаты в Redis
+    for key, result in zip(DATA_MAPPING.keys(), results):
+        if isinstance(result, Exception):
+            logger.error(f"Ошибка при загрузке {key}: {result}")
+            continue
+
+        await cache_data(key, result)
+
+    logger.info("Обновление кэша завершено")
+
+
 async def get_sheet_description(sheet_name: str) -> str | None:
     """
     Получить описание раздела (строка с id=0)
@@ -168,33 +236,6 @@ async def get_sheet_description(sheet_name: str) -> str | None:
         return None
 
 
-async def load_all_data():
-    """Загрузить все данные из Google Sheets при старте бота"""
-    logger.info("Начинается загрузка данных из Google Sheets...")
-
-    tasks = []
-    sheet_names = list(SHEET_MAPPING.keys())
-
-    for sheet_name in sheet_names:
-        tasks.append(load_sheet_data(sheet_name))
-
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-
-    # Глобальные переменные
-    for sheet_name, result in zip(sheet_names, results):
-        if isinstance(result, Exception):
-            logger.error(f"Ошибка при загрузке {sheet_name}: {result}")
-            continue
-
-        global_var = SHEET_MAPPING[sheet_name]
-        global_var.clear()
-        global_var.extend(result)
-
-        logger.info(f"{sheet_name}: загружено {len(result)} записей")
-
-    logger.info("Загрузка данных из Google Sheets завершена")
-
-
 async def update_from_notification(notification_data: dict) -> bool:
     """
     Обновить данные при получении уведомления от Google Sheets
@@ -208,7 +249,9 @@ async def update_from_notification(notification_data: dict) -> bool:
     try:
         sheet_name = notification_data.get("sheet")
 
-        if not sheet_name or sheet_name not in SHEET_MAPPING:
+        target_key = next((k for k, v in DATA_MAPPING.items() if v == sheet_name), None)
+
+        if not target_key:
             logger.warning(f"Неизвестный лист: {sheet_name}")
             return False
 
@@ -216,9 +259,7 @@ async def update_from_notification(notification_data: dict) -> bool:
 
         new_data = await load_sheet_data(sheet_name)
 
-        global_var = SHEET_MAPPING[sheet_name]
-        global_var.clear()
-        global_var.extend(new_data)
+        await cache_data(target_key, new_data)
 
         logger.info(f"Лист '{sheet_name}' обновлён: {len(new_data)} записей")
         return True
@@ -228,14 +269,14 @@ async def update_from_notification(notification_data: dict) -> bool:
         return False
 
 
-def format_faq_text() -> str:
+async def format_faq_text() -> str:
     """
     Форматировать FAQ в читаемый текст
 
     Returns:
         str: Отформатированный текст FAQ
     """
-    faq_items = get_faq_items()
+    faq_items = await get_faq_items()
 
     if not faq_items:
         return (
@@ -291,17 +332,9 @@ def md_links_to_html(text: str) -> str:
 # -------------Функции доступа к данным-------------
 
 
-def get_all_items(source_list: list[dict]) -> list[dict]:  # pragma: no cover
-    """
-    Получить весь список элементов
-
-    Эта функция добавлена для инкапсуляции (в будущем):
-    - можно будет сделать source_list.copy() для защиты от изменения в обработчиках
-    - можно будет вставить это в data_getter-ы и избавиться от всех get_x функций:
-        data_getter=lambda: get_all_items(TARGET_GROUPS)
-    В текущей реализации избыточна, поэтому не тестируется.
-    """
-    return source_list
+async def get_all_items(key: str) -> list[dict]:
+    """Универсальный геттер (обертка над get_cached_data)"""
+    return await get_cached_data(key)
 
 
 def find_item_by_id(items: list[dict], item_id: str) -> dict | None:
@@ -314,41 +347,41 @@ def filter_items_by_field(items: list[dict], field: str, value: str) -> list[dic
     return [item for item in items if str(item.get(field)) == str(value)]
 
 
-def get_target_groups() -> list[dict]:
+async def get_target_groups() -> list[dict]:
     """Получить список целевых групп"""
-    return TARGET_GROUPS
+    return await get_cached_data(KEY_TARGET_GROUPS)
 
 
-def get_events() -> list[dict]:
+async def get_events() -> list[dict]:
     """Получить список мероприятий"""
-    return EVENTS
+    return await get_cached_data(KEY_EVENTS)
 
 
-def get_partners() -> list[dict]:
+async def get_partners() -> list[dict]:
     """Получить список партнёров"""
-    return PARTNERS
+    return await get_cached_data(KEY_PARTNERS)
 
 
-def get_digital_products() -> list[dict]:
+async def get_digital_products() -> list[dict]:
     """Получить список цифровых продуктов"""
-    return DIGITAL_PRODUCTS
+    return await get_cached_data(KEY_DIGITAL_PRODUCTS)
 
 
-def get_areas() -> list[dict]:
+async def get_areas() -> list[dict]:
     """Получить список направлений"""
-    return AREAS
+    return await get_cached_data(KEY_AREAS)
 
 
-def get_courses() -> list[dict]:
+async def get_courses() -> list[dict]:
     """Получить список всех курсов"""
-    return COURSES
+    return await get_cached_data(KEY_COURSES)
 
 
-def get_categories() -> list[dict]:
+async def get_categories() -> list[dict]:
     """Получить список категорий курсов"""
-    return CATEGORIES
+    return await get_cached_data(KEY_CATEGORIES)
 
 
-def get_faq_items() -> list[dict]:
+async def get_faq_items() -> list[dict]:
     """Получить список FAQ вопросов-ответов"""
-    return FAQ_ITEMS
+    return await get_cached_data(KEY_FAQ)

@@ -40,7 +40,7 @@ async def start_handler(message: types.Message):
 @router.message(lambda msg: msg.text == "FAQ")
 async def faq_handler(message: types.Message):
     """Обработчик кнопки FAQ"""
-    faq_text = format_faq_text()
+    faq_text = await format_faq_text()
     await send_message(message, faq_text)
 
 
