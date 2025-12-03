@@ -23,14 +23,32 @@ class TestSettings:
             db_echo=False,
             sheet_id="test_sheet",
             google_credentials_file="test_credentials.json",
+            webhook_url="https://example.com",
         )
 
+        assert settings.webhook_url == "https://example.com"
         assert settings.bot_token == "test_token"
         assert settings.admins == [123456789]
         assert settings.db_user == "test_user"
         assert settings.sheet_id == "test_sheet"
 
     def test_settings_for_tests_missing_token(self):
+        """Проверка ошибки при отсутствии токена"""
+        with pytest.raises(ValidationError):
+            Settings.for_tests(
+                admins=[123456789],
+                db_user="test_user",
+                db_password="test_pass",
+                db_host="localhost",
+                db_port=5432,
+                db_name="test_db",
+                db_echo=False,
+                sheet_id="test_sheet",
+                google_credentials_file="test_credentials.json",
+                webhook_url="https://example.com",
+            )
+
+    def test_settings_missing_webhook_url(self):
         """Проверка ошибки при отсутствии токена"""
         with pytest.raises(ValidationError):
             Settings.for_tests(
@@ -58,10 +76,10 @@ class TestSettings:
             db_echo=False,
             sheet_id="sheet",
             google_credentials_file="test_credentials.json",
+            webhook_url="https://example.com",
         )
 
-        assert settings.webhook_mode is False
-        assert settings.webhook_url is None
+        assert settings.webhook_url == "https://example.com"
         assert settings.webhook_path == "/webhook"
         assert settings.google_webhook_path == "/receive_edit"
         assert settings.app_host == "0.0.0.0"
@@ -98,30 +116,11 @@ class TestSettings:
             db_echo=False,
             sheet_id="sheet",
             google_credentials_file="test_credentials.json",
+            webhook_url="https://example.com",
         )
 
         assert isinstance(settings.scopes, list)
         assert "https://www.googleapis.com/auth/spreadsheets" in settings.scopes
-
-    def test_settings_webhook_mode(self):
-        """Проверка настроек webhook режима"""
-        settings = Settings.for_tests(
-            bot_token="test_token",
-            admins=[],
-            db_user="user",
-            db_password="pass",
-            db_host="localhost",
-            db_port=5432,
-            db_name="db",
-            db_echo=False,
-            sheet_id="sheet",
-            google_credentials_file="test_credentials.json",
-            webhook_mode=True,
-            webhook_url="https://example.com",
-        )
-
-        assert settings.webhook_mode is True
-        assert settings.webhook_url == "https://example.com"
 
     def test_settings_admins_list(self):
         """Проверка списка администраторов"""

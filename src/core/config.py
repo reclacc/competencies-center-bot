@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List
 
 from pydantic import ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -34,8 +34,7 @@ class Settings(BaseSettings):
     ]
 
     # Настройки вебхука
-    webhook_mode: bool = False
-    webhook_url: Optional[str] = None
+    webhook_url: str
     webhook_path: str = "/webhook"
     google_webhook_path: str = "/receive_edit"
 

@@ -56,13 +56,16 @@ jobs:
         echo "DB_PORT=$DB_PORT" >> $GITHUB_ENV
         echo "DB_NAME=$DB_NAME" >> $GITHUB_ENV
         echo "DB_ECHO=$DB_ECHO" >> $GITHUB_ENV
-        echo "WEBHOOK_MODE=false" >> $GITHUB_ENV
-        echo "WEBHOOK_URL=" >> $GITHUB_ENV
+        echo "WEBHOOK_URL=https://example.com" >> $GITHUB_ENV
         echo "WEBHOOK_PATH=/webhook" >> $GITHUB_ENV
         echo "APP_HOST=0.0.0.0" >> $GITHUB_ENV
         echo "APP_PORT=8080" >> $GITHUB_ENV
         echo "SHEET_ID=dummy_sheet_id" >> $GITHUB_ENV
         echo "GOOGLE_CREDENTIALS_FILE=dummy_credentials.json" >> $GITHUB_ENV
+        echo "REDIS_HOST=redis" >> $GITHUB_ENV
+        echo "REDIS_PORT=6379" >> $GITHUB_ENV
+        echo "REDIS_DB=0" >> $GITHUB_ENV
+        echo "CACHE_TTL=3600" >> $GITHUB_ENV
 
     - name: Lint with flake8
       run: |

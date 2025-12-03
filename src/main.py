@@ -62,30 +62,23 @@ async def on_startup(bot: Bot):
         logger.info("Данные из Google Sheets загружены успешно")
     except Exception as e:
         logger.error(f"Ошибка при загрузке данных из Google Sheets: {e}", exc_info=True)
-        # Запуск не прерывается, т.к. в теории бот может работать с пустыми данными
 
-    if settings.webhook_mode:
-        if not settings.webhook_url:
-            raise ValueError("WEBHOOK_URL должен быть установлен в .env для режима вебхука")
-
-        webhook_url = f"{settings.webhook_url}{settings.webhook_path}"
-        await bot.set_webhook(
-            url=webhook_url,
-            drop_pending_updates=True,
-            allowed_updates=["message", "callback_query", "edited_message"],
-        )
-        logger.info(f"Вебхук установлен: {webhook_url}")
-        logger.info(f"Google Sheets webhook: {settings.webhook_url}{settings.google_webhook_path}")
-    else:
-        await bot.delete_webhook(drop_pending_updates=True)
-        logger.info("Режим polling активирован")
+    if not settings.webhook_url:
+        raise ValueError("WEBHOOK_URL должен быть установлен в .env для запуска")
+    webhook_url = f"{settings.webhook_url}{settings.webhook_path}"
+    await bot.set_webhook(
+        url=webhook_url,
+        drop_pending_updates=True,
+        allowed_updates=["message", "callback_query", "edited_message"],
+    )
+    logger.info(f"Вебхук установлен: {webhook_url}")
+    logger.info(f"Google Sheets webhook: {settings.webhook_url}{settings.google_webhook_path}")
 
 
 async def on_shutdown(bot: Bot):
     """Действия при остановке бота"""
-    if settings.webhook_mode:
-        await bot.delete_webhook()
-        logger.info("Вебхук удалён")
+    await bot.delete_webhook()
+    logger.info("Вебхук удалён")
 
 
 def create_bot_and_dispatcher() -> tuple[Bot, Dispatcher]:
@@ -154,8 +147,8 @@ async def handle_google_edit(request: web.Request):
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
 
-async def start_webhook():  # pragma: no cover
-    """Запуск в режиме вебхука"""
+async def start_app():  # pragma: no cover
+    """Запуск приложения"""
     bot, dp = create_bot_and_dispatcher()
 
     app = web.Application()
@@ -187,34 +180,9 @@ async def start_webhook():  # pragma: no cover
             await runner.cleanup()
 
 
-async def start_polling():  # pragma: no cover
-    """Запуск в режиме polling"""
-    bot, dp = create_bot_and_dispatcher()
-
-    async with lifespan():
-        try:
-            logger.info("Запуск бота в режиме polling...")
-            await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
-        finally:
-            await bot.session.close()
-
-
-async def main():  # pragma: no cover
-    """Главная функция"""
-    try:
-        if settings.webhook_mode:
-            logger.info("Запуск в режиме вебхука")
-            await start_webhook()
-        else:
-            logger.info("Запуск в режиме polling")
-            await start_polling()
-    except Exception as e:
-        logger.error(f"Критическая ошибка: {e}", exc_info=True)
-        raise
-
-
 if __name__ == "__main__":
     try:
-        asyncio.run(main())
+        logger.info("Запуск...")
+        asyncio.run(start_app())
     except KeyboardInterrupt:
         logger.info("Бот остановлен пользователем")
