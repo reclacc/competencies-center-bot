@@ -19,6 +19,13 @@ class Settings(BaseSettings):
     db_name: str
     db_echo: bool
 
+    # Redis (кэширование)
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_db: int = 0
+    # TTL кэша в секундах (по умолчанию 1 час)
+    cache_ttl: int = 3600
+
     # Google_Sheets
     sheet_id: str
     google_credentials_file: str
@@ -42,11 +49,16 @@ class Settings(BaseSettings):
 
     @property
     def db_url(self):
-        """Построение URL"""
+        """Построение URL для БД"""
         return (
             f"postgresql+asyncpg://{self.db_user}:{self.db_password}"
             f"@{self.db_host}:{self.db_port}/{self.db_name}"
         )
+
+    @property
+    def redis_url(self):
+        """Построение URL для Redis"""
+        return f"redis://{self.redis_host}:{self.redis_port}/{self.redis_db}"
 
     @classmethod
     def for_tests(cls, **overrides) -> "Settings":

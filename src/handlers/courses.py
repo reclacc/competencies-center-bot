@@ -39,7 +39,7 @@ class CoursesHandler(GenericSectionHandler):
         """Показ списка категорий"""
         await state.set_state(SectionStates.browsing_categories)
 
-        categories = get_categories()
+        categories = await get_categories()
         text = "<b>📚 Каталог курсов</b>\n\nВыберите категорию:"
 
         kb = get_items_keyboard(categories, "course_category")
@@ -60,7 +60,7 @@ class CoursesHandler(GenericSectionHandler):
         data = await state.get_data()
         category_id = data.get("current_category")
 
-        all_courses = self.config.data_getter()
+        all_courses = await self.config.data_getter()
 
         if not category_id:
             return all_courses

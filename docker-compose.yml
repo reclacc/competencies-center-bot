@@ -45,6 +45,11 @@ services:
     image: redis:alpine
     container_name: competencies_redis
     restart: always
+    # Сохранять на диск, если было 1 изменение за 60 сек.
+    # Уровень логов warning, чтобы не спамить.
+    command: redis-server --save 60 1 --loglevel warning
+    ports:
+      - "6379:6379" # Для удобной отладки через Redis Desktop Manager
     volumes:
       - redis_data:/data
     networks:

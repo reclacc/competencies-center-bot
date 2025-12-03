@@ -217,9 +217,10 @@ class TestWebhookHandler:
 class TestLifespan:
     """Тесты для lifespan контекстного менеджера"""
 
+    @patch("src.main.RedisClient")
     @patch("src.main.db_helper.engine", new_callable=AsyncMock)
-    async def test_lifespan_db_connection_check(self, mock_engine):
-        """Проверка подключения к БД при запуске"""
+    async def test_lifespan_db_connection_check(self, mock_engine, mock_redis_cls):
+        """Проверка подключения к БД и Redis при запуске"""
         # ВАЖНО: connect() - синхронный метод, возвращающий асинхронный контекстный менеджер
         # AsyncMock по умолчанию делает методы асинхронными (не соответствует SQLAlchemy)
         # Поэтому connect обычным MagicMock!!!
@@ -232,14 +233,20 @@ class TestLifespan:
         mock_engine.connect.return_value.__aenter__.return_value = mock_connection
         mock_engine.connect.return_value.__aexit__.return_value = None
 
+        mock_redis_instance = AsyncMock()
+        mock_redis_cls.get_instance.return_value = mock_redis_instance
+        mock_redis_cls.close = AsyncMock()
+
         async with lifespan():
             # Проверяем, что connect вызван (как синхронный метод)
             mock_engine.connect.assert_called_once()
             # Проверяем, что SQL запрос отправлен
             mock_connection.execute.assert_called_once()
+            mock_redis_instance.ping.assert_called_once()
 
         # тк mock_engine был создан как AsyncMock, dispose остался асинхронным
         mock_engine.dispose.assert_called_once()
+        mock_redis_cls.close.assert_called_once()
 
     @patch("src.main.db_helper.engine", new_callable=AsyncMock)
     async def test_lifespan_db_connection_error(self, mock_engine):

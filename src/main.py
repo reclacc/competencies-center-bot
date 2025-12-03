@@ -10,6 +10,7 @@ from sqlalchemy import text
 
 from src.core.config import settings
 from src.core.database import db_helper
+from src.core.redis_client import RedisClient
 from src.handlers import courses, sections, start
 from src.handlers.admin import broadcast, user_management
 from src.utils import load_all_data, update_from_notification
@@ -24,9 +25,9 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan():
     """Контекстный менеджер для управления жизненным циклом приложения"""
-    logger.info("Инициализация базы данных...")
+    logger.info("Инициализация базы данных и Redis...")
 
-    # Проверка подключения
+    # Проверка БД
     try:
         async with db_helper.engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
@@ -35,12 +36,22 @@ async def lifespan():
         logger.error(f"❌ Ошибка подключения к базе данных: {e}")
         raise
 
-    logger.info("База данных инициализирована")
+    # Инициализация Redis (проверка соединения)
+    try:
+        redis = RedisClient.get_instance()
+        await redis.ping()
+        logger.info("✅ Подключение к Redis установлено")
+    except Exception as e:
+        logger.error(f"❌ Ошибка подключения к Redis: {e}")
+        raise
+
+    logger.info("База данных и кэш инициализированы")
 
     yield
 
-    logger.info("Закрытие соединений с БД...")
+    logger.info("Закрытие соединений...")
     await db_helper.engine.dispose()
+    await RedisClient.close()
     logger.info("Соединения закрыты")
 
 
