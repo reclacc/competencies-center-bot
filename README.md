@@ -1,9 +1,10 @@
 # Competencies Center Bot
 
-Telegram-бот для Центра компетенций.
+Telegram-бот для Центра компетенций с поддержкой polling и webhook режимов.
 
 ## Что уже сделано
 
+- Поддержка polling и webhook режимов
 - Конфигурация через `.env` файл
 - Современная структура с aiogram 3.x
 - Логирование событий
@@ -11,8 +12,6 @@ Telegram-бот для Центра компетенций.
 - Асинхронная работа с PostgreSQL
 - Система миграций Alembic
 - Ролевая система доступа (USER, ADMIN)
-- Кэширование данных из Google Sheets с Redis
-- Поддержка Docker
 
 ## Структура проекта
 
@@ -40,15 +39,17 @@ competencies-center-bot/
 │   │   ├── admin/                    # Обработчики админ-команд
 │   │   │   ├── broadcast.py          # Рассылка сообщений
 │   │   │   └── user_management.py    # Управление пользователями
-│   │   ├── courses.py                # Обработчик для курсов (FSM)
+│   │   ├── common/                   # Общая функциональность разделов
+│   │   │   └── base_section.py       # Базовый обработчик разделов
+│   │   ├── courses.py                # Обработчик для курсов
 │   │   ├── sections.py               # Обработчики для разделов
 │   │   └── start.py                  # Команда /start и главное меню
 │   ├── keyboards/                    # Клавиатуры
-│   │   ├── courses_keyboard.py       # Курсы
 │   │   ├── main_menu.py              # Главное меню
-│   │   └── sections_keyboard.py      # Разделы
+│   │   └── sections.py               # Разделы
 │   ├── middlewares/                  # Промежуточное ПО
-│   │   └── admin.py                  # Middleware для проверки прав админа
+│   │   ├── admin.py                  # Middleware для проверки прав админа
+│   │   └── message_formatter.py      # Форматтеры сообщений
 │   ├── models/                       # Модели данных
 │   │   ├── base.py                   # Базовая модель
 │   │   └── user.py                   # Модель пользователя
@@ -293,10 +294,22 @@ docker-compose down
 - PostgreSQL 16+ (протестировано на 18.1)
 - Выполнены миграции БД (`alembic upgrade head`)
 
-### Инструкция
+### Режим Polling
+
+```bash
+python -m src.main
+```
+
+В `.env` должно быть:
+```env
+WEBHOOK_MODE=false
+```
+
+### Режим Webhook
 
 1. **Настройте .env**
 ```env
+WEBHOOK_MODE=true
 WEBHOOK_URL=https://your-webhook.url
 APP_PORT=8080
 ```
@@ -341,6 +354,7 @@ python -m src.main
 
 | Параметр | Описание | По умолчанию |
 |----------|---------|-------------|
+| `WEBHOOK_MODE` | Режим работы (true/false) | false |
 | `WEBHOOK_URL` | URL для вебхука | - |
 | `WEBHOOK_PATH` | Путь для вебхука Telegram | `/webhook` |
 | `GOOGLE_WEBHOOK_PATH` | Путь для вебхука Google Sheets | `/receive_edit` |
