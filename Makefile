@@ -46,9 +46,6 @@ clean:
 	find . -type d -name "htmlcov" -exec rm -rf {} +
 	find . -type f -name ".coverage" -delete
 
-run-polling:
-	python -m src.main
-
-run-webhook:
-	@echo "Не забудьте установить WEBHOOK_MODE=true и WEBHOOK_URL в .env"
+run:
+	@echo "Не забудьте установить WEBHOOK_URL в .env"
 	python -m src.main

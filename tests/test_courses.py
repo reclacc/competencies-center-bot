@@ -42,15 +42,23 @@ def mock_categories_data():
 @pytest.fixture
 def courses_handler(mock_courses_data, mock_categories_data):
     router = Router()
+
+    async def async_courses_getter():
+        return mock_courses_data
+
     config = SectionConfig(
         section_code="course",
         button_text="Курсы",
         title="📚 Курсы",
-        data_getter=lambda: mock_courses_data,
+        data_getter=async_courses_getter,
     )
 
-    # здесь для простоты патчим функцию в модуле handlers.courses
-    with patch("src.handlers.courses.get_categories", return_value=mock_categories_data):
+    # Асинхронная заглушка для get_categories
+    async def async_get_categories():
+        return mock_categories_data
+
+    # Патчим side_effect, чтобы возвращать корутину
+    with patch("src.handlers.courses.get_categories", side_effect=async_get_categories):
         handler = CoursesHandler(router, config)
         yield handler
 

@@ -1,10 +1,9 @@
 # Competencies Center Bot
 
-Telegram-бот для Центра компетенций с поддержкой polling и webhook режимов.
+Telegram-бот для Центра компетенций.
 
 ## Что уже сделано
 
-- Поддержка polling и webhook режимов
 - Конфигурация через `.env` файл
 - Современная структура с aiogram 3.x
 - Логирование событий
@@ -12,6 +11,8 @@ Telegram-бот для Центра компетенций с поддержко
 - Асинхронная работа с PostgreSQL
 - Система миграций Alembic
 - Ролевая система доступа (USER, ADMIN)
+- Кэширование данных с Redis
+- Поддержка Docker
 
 ## Структура проекта
 
@@ -33,20 +34,23 @@ competencies-center-bot/
 ├── src/
 │   ├── core/                         # Основные компоненты приложения
 │   │   ├── config.py                 # Настройки из .env
-│   │   └── database.py               # Настройки базы данных
+│   │   ├── database.py               # Настройки базы данных
+│   │   └── redis_client.py           # Клиент Redis
 │   ├── handlers/                     # Обработчики команд и сообщений
 │   │   ├── admin/                    # Обработчики админ-команд
 │   │   │   ├── broadcast.py          # Рассылка сообщений
 │   │   │   └── user_management.py    # Управление пользователями
-│   │   ├── courses.py                # Обработчик для курсов (FSM)
+│   │   ├── common/                   # Общая функциональность разделов
+│   │   │   └── base_section.py       # Базовый обработчик разделов
+│   │   ├── courses.py                # Обработчик для курсов
 │   │   ├── sections.py               # Обработчики для разделов
 │   │   └── start.py                  # Команда /start и главное меню
 │   ├── keyboards/                    # Клавиатуры
-│   │   ├── courses_keyboard.py       # Курсы
 │   │   ├── main_menu.py              # Главное меню
-│   │   └── sections_keyboard.py      # Разделы
+│   │   └── sections.py               # Разделы
 │   ├── middlewares/                  # Промежуточное ПО
-│   │   └── admin.py                  # Middleware для проверки прав админа
+│   │   ├── admin.py                  # Middleware для проверки прав админа
+│   │   └── message_formatter.py      # Форматтеры сообщений
 │   ├── models/                       # Модели данных
 │   │   ├── base.py                   # Базовая модель
 │   │   └── user.py                   # Модель пользователя
@@ -106,7 +110,7 @@ cp .env.example .env
 # Database
 DB_USER=postgres
 DB_PASSWORD=your_password
-DB_HOST=localhost
+DB_HOST=db
 DB_PORT=5432
 DB_NAME=competencies_center
 DB_ECHO=false
@@ -235,7 +239,55 @@ function onEdit(e) {
 
 **Важно:** В каждом листе строка с `id = 0` содержит описание раздела и не отображается в списках.
 
-## Запуск
+## Запуск через Docker (Рекомендуемый)
+
+Docker позволяет запустить бота вместе с базой данных (PostgreSQL) и кэшем (Redis) в изолированной среде одной командой.
+
+### Предварительные требования
+- Установленный Docker Desktop (Windows/Mac) или Docker Engine + Docker Compose (Linux).
+
+### Настройка
+
+1. **Настройте переменные окружения.** В файле `.env` необходимо указать имена сервисов вместо `localhost`:
+
+```env
+# Database
+DB_HOST=db       # Важно: имя сервиса из docker-compose.yml
+DB_PORT=5432
+   
+# Redis
+REDIS_HOST=redis # Важно: имя сервиса из docker-compose.yml
+REDIS_PORT=6379
+```
+
+2. **Файлы.** Убедитесь, что в корне проекта находятся:
+
+- .env
+- credentials.json (ключи Google Cloud)
+
+3. **Управление**
+
+Запуск проекта:
+
+```bash
+docker-compose up -d --build
+```
+Флаг -d запускает контейнеры в фоновом режиме. При запуске автоматически применяются миграции базы данных.
+
+Просмотр логов:
+
+```bash
+docker-compose logs -f bot
+```
+
+Остановка проекта:
+```bash
+docker-compose down
+```
+
+Работа с вебхуками в Docker: Контейнер бота пробрасывает порт 8080 наружу. Для локального тестирования вебхуков (например, через tuna/ngrok) используйте: tuna http 8080 (трафик пойдет на localhost:8080 -> docker:8080).
+
+## Локальный запуск (Python)
 
 ### Требования
 
@@ -243,22 +295,10 @@ function onEdit(e) {
 - PostgreSQL 16+ (протестировано на 18.1)
 - Выполнены миграции БД (`alembic upgrade head`)
 
-### Режим Polling
-
-```bash
-python -m src.main
-```
-
-В `.env` должно быть:
-```env
-WEBHOOK_MODE=false
-```
-
-### Режим Webhook
+### Инструкция
 
 1. **Настройте .env**
 ```env
-WEBHOOK_MODE=true
 WEBHOOK_URL=https://your-webhook.url
 APP_PORT=8080
 ```
@@ -303,7 +343,6 @@ python -m src.main
 
 | Параметр | Описание | По умолчанию |
 |----------|---------|-------------|
-| `WEBHOOK_MODE` | Режим работы (true/false) | false |
 | `WEBHOOK_URL` | URL для вебхука | - |
 | `WEBHOOK_PATH` | Путь для вебхука Telegram | `/webhook` |
 | `GOOGLE_WEBHOOK_PATH` | Путь для вебхука Google Sheets | `/receive_edit` |

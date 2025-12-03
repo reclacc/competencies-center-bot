@@ -46,8 +46,10 @@ class TestBotIntegration:
         assert "Добро пожаловать" in response_text
         assert message.from_user.first_name in response_text
 
-    async def test_menu_button_flow(self, message):
+    @patch("src.handlers.start.format_faq_text")
+    async def test_menu_button_flow(self, mock_format, message):
         """Тест flow нажатия кнопки меню"""
+        mock_format.return_value = "Часто задаваемые вопросы"
         message.text = "FAQ"
         message.answer = AsyncMock()
 
@@ -106,18 +108,15 @@ class TestBotIntegration:
         mock_user_service_class.return_value = mock_user_service
         mock_user_service.toggle_mailing = AsyncMock(return_value=True)
 
+        # FAQ теперь требует мока format_faq_text, его тестируем отдельно.
         handlers = [
-            ("FAQ", faq_handler),
             ("Подписка на уведомления", subscribe_handler),
         ]
 
         for button_text, handler in handlers:
             message.text = button_text
             message.answer = AsyncMock()
-
             await handler(message)
-
-            # Проверяем, что на каждую кнопку пришел ответ
             message.answer.assert_called_once()
 
 
@@ -170,22 +169,16 @@ class TestBotPerformance:
 class TestSectionsIntegrationFlow:
     """Интеграционные тесты для всех разделов"""
 
-    async def test_sections_not_crash_on_empty_data(self, message):
+    @patch("src.handlers.common.base_section.GenericSectionHandler.get_items")
+    async def test_sections_not_crash_on_empty_data(self, mock_get_items, message):
         """Тест что разделы не падают на пустых данных"""
-        from src.utils import AREAS, DIGITAL_PRODUCTS, EVENTS, PARTNERS, TARGET_GROUPS
-
-        # Очищаем данные
-        TARGET_GROUPS.clear()
-        EVENTS.clear()
-        PARTNERS.clear()
-        DIGITAL_PRODUCTS.clear()
-        AREAS.clear()
-
         from aiogram import Router
         from aiogram.fsm.context import FSMContext
 
-        message.answer = AsyncMock()
+        # Мокаем получение данных - возвращаем пустой список
+        mock_get_items.return_value = []
 
+        message.answer = AsyncMock()
         mock_state = AsyncMock(spec=FSMContext)
         mock_state.set_state = AsyncMock()
 
@@ -199,7 +192,6 @@ class TestSectionsIntegrationFlow:
 
             await handler.show_list(message, mock_state)
 
-            # Проверяем что вызов не упал и вернул сообщение
             message.answer.assert_called_once()
             response = message.answer.call_args[0][0]
             assert "не загружена" in response or "пока не загружена" in response

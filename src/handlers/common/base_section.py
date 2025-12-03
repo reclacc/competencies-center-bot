@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 from aiogram import F, Router, types
@@ -28,7 +28,7 @@ class SectionConfig:
     section_code: str
     button_text: str
     title: str
-    data_getter: Callable[[], list[dict]]
+    data_getter: Callable[[], Awaitable[list[dict]]]
 
     id_field: str = "id"
     name_field: str = "name"
@@ -67,7 +67,7 @@ class GenericSectionHandler:
 
         Переопределяется в наследниках для фильтрации (например, в курсах).
         """
-        return self.config.data_getter()
+        return await self.config.data_getter()
 
     async def show_list(self, event: types.Message | types.CallbackQuery, state: FSMContext):
         """Отображение списка элементов"""
@@ -103,7 +103,7 @@ class GenericSectionHandler:
         """Отображение детализации"""
         item_id = callback.data.split(":")[1]
 
-        all_items = self.config.data_getter()
+        all_items = await self.config.data_getter()
         item = find_item_by_id(all_items, item_id)
 
         if not item:

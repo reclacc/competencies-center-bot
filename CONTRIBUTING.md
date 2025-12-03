@@ -62,15 +62,18 @@ ADMINS=[1234567890]
 # Database
 DB_USER=postgres
 DB_PASSWORD=postgres
-DB_HOST=localhost
+DB_HOST=db
 DB_PORT=5432
 DB_NAME=postgres
 DB_ECHO=true
 
-# Режим работы: false = polling, true = webhook
-WEBHOOK_MODE=true
+# Redis
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_DB=0
+CACHE_TTL=3600
 
-# URL вебхука (только для WEBHOOK_MODE=true)
+# URL вебхука
 # Например, для tuna: https://my-subdomain.tuna.am
 WEBHOOK_URL=https://my-subdomain.tuna.am
 

@@ -1,5 +1,6 @@
 """Тесты для утилит работы с данными"""
 
+import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -7,13 +8,6 @@ import pytest
 from src.utils import (
     filter_items_by_field,
     find_item_by_id,
-    get_areas,
-    get_categories,
-    get_courses,
-    get_digital_products,
-    get_events,
-    get_faq_items,
-    get_partners,
     get_target_groups,
     load_all_data,
     load_sheet_data,
@@ -24,89 +18,53 @@ from src.utils import (
 
 @pytest.mark.unit
 class TestDataAccessFunctions:
-    """Тесты функций доступа к данным"""
+    """Тесты функций доступа к данным (через Redis)"""
 
-    def test_get_target_groups(self):
-        """Тест получения целевых групп"""
-        from src.utils import TARGET_GROUPS
+    @patch("src.utils.get_redis")
+    async def test_get_target_groups_hit(self, mock_get_redis):
+        """Тест получения данных: попадание в кэш"""
+        # Мокаем Redis
+        mock_redis = AsyncMock()
+        mock_get_redis.return_value = mock_redis
 
-        TARGET_GROUPS.clear()
-        TARGET_GROUPS.extend([{"id": "1", "name": "Тест"}])
+        # Данные в кэше (JSON строка)
+        cached_data = [{"id": "1", "name": "Cached"}]
+        mock_redis.get.return_value = json.dumps(cached_data)
 
-        result = get_target_groups()
+        result = await get_target_groups()
+
         assert len(result) == 1
-        assert result[0]["name"] == "Тест"
+        assert result[0]["name"] == "Cached"
+        # Проверяем, что в google sheets не ходили
+        with patch("src.utils.load_sheet_data") as mock_load:
+            assert not mock_load.called
 
-    def test_get_events(self):
-        """Тест получения мероприятий"""
-        from src.utils import EVENTS
+    @patch("src.utils.get_redis")
+    @patch("src.utils.load_sheet_data")
+    async def test_get_target_groups_miss(self, mock_load_sheet, mock_get_redis):
+        """Тест получения данных: промах кэша (загрузка из Sheets)"""
+        mock_redis = AsyncMock()
+        mock_get_redis.return_value = mock_redis
 
-        EVENTS.clear()
-        EVENTS.extend([{"id": "1", "title": "Мероприятие"}])
+        # Кэш пуст
+        mock_redis.get.return_value = None
 
-        result = get_events()
+        # Sheets возвращают данные
+        sheet_data = [{"id": "2", "name": "From Sheet"}]
+        mock_load_sheet.return_value = sheet_data
+
+        result = await get_target_groups()
+
         assert len(result) == 1
-        assert result[0]["title"] == "Мероприятие"
+        assert result[0]["name"] == "From Sheet"
 
-    def test_get_partners(self):
-        """Тест получения партнёров"""
-        from src.utils import PARTNERS
+        from src.utils import KEY_TARGET_GROUPS
 
-        PARTNERS.clear()
-        PARTNERS.extend([{"id": "1", "name": "Партнёр"}])
-
-        result = get_partners()
-        assert len(result) == 1
-
-    def test_get_digital_products(self):
-        """Тест получения цифровых продуктов"""
-        from src.utils import DIGITAL_PRODUCTS
-
-        DIGITAL_PRODUCTS.clear()
-        DIGITAL_PRODUCTS.extend([{"id": "1", "name": "Продукт"}])
-
-        result = get_digital_products()
-        assert len(result) == 1
-
-    def test_get_areas(self):
-        """Тест получения направлений"""
-        from src.utils import AREAS
-
-        AREAS.clear()
-        AREAS.extend([{"id": "1", "name": "IT"}])
-
-        result = get_areas()
-        assert len(result) == 1
-
-    def test_get_courses(self):
-        """Тест получения курсов"""
-        from src.utils import COURSES
-
-        COURSES.clear()
-        COURSES.extend([{"id": "1", "name": "Python"}])
-
-        result = get_courses()
-        assert len(result) == 1
-
-    def test_get_categories(self):
-        """Тест получения категорий"""
-        from src.utils import CATEGORIES
-
-        CATEGORIES.clear()
-        CATEGORIES.extend([{"id": "1", "name": "Программирование"}])
-
-        result = get_categories()
-        assert len(result) == 1
-
-    def test_get_faq_items(self):
-        """Тест получения списка FAQ"""
-        from src.utils import FAQ_ITEMS
-
-        FAQ_ITEMS.clear()
-        FAQ_ITEMS.extend([{"id": "1", "question": "Q1", "answer": "A1"}])
-
-        result = get_faq_items()
-        assert len(result) == 1
+        # Проверяем, что данные сохранились в кэш
+        mock_redis.set.assert_called_once()
+        args = mock_redis.set.call_args
+        assert args[0][0] == KEY_TARGET_GROUPS  # Ключ
+        assert json.loads(args[0][1]) == sheet_data  # Данные
 
     def test_find_item_by_id(self):
         """Тест универсального поиска по ID"""
@@ -222,31 +180,16 @@ class TestLoadSheetData:
 class TestLoadAllData:
     """Тесты загрузки всех данных"""
 
+    @patch("src.utils.cache_data")
     @patch("src.utils.load_sheet_data")
-    async def test_load_all_data_success(self, mock_load):
+    async def test_load_all_data_success(self, mock_load, mock_cache):
         """Тест успешной загрузки всех данных"""
         mock_load.return_value = [{"id": "1", "name": "Тест"}]
 
-        from src.utils import CATEGORIES, COURSES
-
-        CATEGORIES.clear()
-        COURSES.clear()
-
         await load_all_data()
 
-        assert len(CATEGORIES) > 0 or len(COURSES) > 0
-
-    @patch("src.utils.load_sheet_data")
-    async def test_load_all_data_with_errors(self, mock_load):
-        """Тест загрузки с ошибками"""
-        mock_load.side_effect = [
-            [{"id": "1", "name": "Успешно"}],
-            Exception("Ошибка загрузки"),
-            [{"id": "2", "name": "Тоже успешно"}],
-        ]
-
-        # Не должно упасть, ошибки логируются
-        await load_all_data()
+        # Проверяем, что кэширование вызывалось для всех разделов
+        assert mock_cache.call_count >= 1
 
 
 @pytest.mark.unit

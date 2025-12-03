@@ -27,11 +27,14 @@ def mock_data():
 
 @pytest.fixture
 def section_config(mock_data):
+    async def async_getter():
+        return mock_data
+
     return SectionConfig(
         section_code="test_section",
         button_text="Test Section",
         title="🧪 Тестовый раздел",
-        data_getter=lambda: mock_data,
+        data_getter=async_getter,
     )
 
 
@@ -74,8 +77,12 @@ class TestGenericSectionHandler:
 
     async def test_show_list_empty(self, generic_handler, message, mock_state):
         """Тест отображения пустого списка"""
-        # Подменяем геттер на пустой список
-        generic_handler.config.data_getter = lambda: []
+
+        # Подменяем геттер на пустой асинхронный список
+        async def empty_getter():
+            return []
+
+        generic_handler.config.data_getter = empty_getter
 
         message.answer = AsyncMock()
         await generic_handler.show_list(message, mock_state)
